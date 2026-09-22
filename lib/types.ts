@@ -195,6 +195,8 @@ export type Purchase = {
   supplier_id: string;
   total: number;
   status: string;
+  kind: "merchandise" | "bags" | "other";
+  notes: string;
   due_date: string;
   created_at: string;
   created_by?: string;
