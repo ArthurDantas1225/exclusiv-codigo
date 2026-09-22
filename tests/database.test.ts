@@ -30,6 +30,7 @@ before(async () => {
   await db.exec(readFileSync("supabase/migrations/20260919174030_product_catalog_flow.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20260919190000_product_grid_media_undo.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20260919193842_product_subcategory.sql", "utf8"));
+  await db.exec(readFileSync("supabase/migrations/20260922120000_purchase_supplies_notes.sql", "utf8"));
   await db.query("insert into auth.users values ($1),($2)", [user, otherUser]);
   await db.query(
     "insert into public.organizations(id,name) values($1,'EXCLUSIV'),($2,'Other')",
@@ -392,6 +393,30 @@ test("supplier, partial purchase receipt and payable settlement", async () => {
     ),
     2000,
   );
+});
+test("bag replenishment accepts a direct amount, notes and no SKU", async () => {
+  const supplier = await command("supplier", { name: "Embalagens teste" });
+  const stockBefore = Number((await scalar("select stock from product_variants limit 1")).stock);
+  const purchase = await command("purchase", {
+    supplier_id: supplier,
+    due_date: "2026-10-05",
+    kind: "bags",
+    amount: 2750,
+    notes: "Sacolas pretas, tamanho médio",
+    items: [],
+  });
+  const saved = await scalar(`select kind,total,notes,status from purchase_orders where id='${purchase}'`);
+  assert.equal(saved.kind, "bags");
+  assert.equal(Number(saved.total), 2750);
+  assert.equal(saved.notes, "Sacolas pretas, tamanho médio");
+  assert.equal(Number((await scalar(`select count(*) as n from purchase_order_items where purchase_id='${purchase}'`)).n), 0);
+  await command("receive_purchase", { purchase_id: purchase, items: [] });
+  assert.equal((await scalar(`select status from purchase_orders where id='${purchase}'`)).status, "received");
+  assert.equal(Number((await scalar("select stock from product_variants limit 1")).stock), stockBefore);
+  const bill = await scalar(`select amount,category,description from accounts_payable where purchase_id='${purchase}'`);
+  assert.equal(Number(bill.amount), 2750);
+  assert.equal(bill.category, "Sacolas e embalagens");
+  assert.equal(bill.description, "Reposição de sacolas");
 });
 test("CSV import is atomic when a later row has duplicate SKU", async () => {
   const count = (await db.query("select id from products")).rows.length;
