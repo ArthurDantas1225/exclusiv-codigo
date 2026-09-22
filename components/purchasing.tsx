@@ -235,9 +235,21 @@ export function Purchases() {
   const actorName = (id?: string) => data.profiles.find((p) => p.id === id)?.name ?? "Registro anterior";
   const [open, setOpen] = useState(false),
     [receive, setReceive] = useState<Purchase>(),
+    [kind, setKind] = useState<Purchase["kind"]>("merchandise"),
     [lines, setLines] = useState<
       { variant_id: string; quantity: number; unit_cost: number }[]
     >([]);
+  const closeNewPurchase = () => {
+    setOpen(false);
+    setKind("merchandise");
+    setLines([]);
+  };
+  const kindLabel = (purchase: Purchase) =>
+    purchase.kind === "bags"
+      ? "Reposição de sacolas"
+      : purchase.kind === "other"
+        ? "Compra sem SKU"
+        : "Mercadoria para estoque";
   return (
     <>
       <div className="page-heading">
@@ -257,13 +269,14 @@ export function Purchases() {
                 {data.suppliers.find((s) => s.id === p.supplier_id)?.name}
               </strong>
               <small>
-                {money(p.total)} ·{" "}
+                {kindLabel(p)} · {money(p.total)} ·{" "}
                 {p.status === "received"
                   ? "Recebido"
                   : p.status === "partial"
                     ? "Parcialmente recebido"
                     : "Pedido"}
               </small>
+              {p.notes && <small>Observação: {p.notes}</small>}
               <small>Registrado por {actorName(p.created_by)}</small>
             </div>
             <button
@@ -277,12 +290,12 @@ export function Purchases() {
         {!data.purchase_orders.length && (
           <Empty
             title="Nenhum pedido de compra"
-            text="Cadastre fornecedores e SKUs antes de criar o pedido."
+            text="Cadastre um fornecedor para registrar mercadorias, sacolas ou outras compras."
           />
         )}
       </Card>
       {open && (
-        <Sheet title="Novo pedido de compra" close={() => setOpen(false)}>
+        <Sheet title="Novo pedido de compra" close={closeNewPurchase}>
           <Form
             busy={busy}
             onSubmit={async (f) => {
@@ -290,11 +303,13 @@ export function Purchases() {
                 await run("purchase", {
                   supplier_id: f.get("supplier_id"),
                   due_date: f.get("due_date"),
-                  items: lines,
+                  kind,
+                  amount: kind === "merchandise" ? undefined : cents(f.get("amount")),
+                  notes: f.get("notes"),
+                  items: kind === "merchandise" ? lines : [],
                 })
               ) {
-                setOpen(false);
-                setLines([]);
+                closeNewPurchase();
               }
             }}
           >
@@ -308,6 +323,20 @@ export function Purchases() {
                 ))}
               </select>
             </Field>
+            <Field name="kind" label="Tipo de pedido">
+              <select
+                name="kind"
+                value={kind}
+                onChange={(e) => {
+                  setKind(e.target.value as Purchase["kind"]);
+                  if (e.target.value !== "merchandise") setLines([]);
+                }}
+              >
+                <option value="merchandise">Mercadoria para estoque (com SKU)</option>
+                <option value="bags">Reposição de sacolas</option>
+                <option value="other">Outra compra sem SKU</option>
+              </select>
+            </Field>
             <Field
               name="due_date"
               label="Vencimento da compra"
@@ -315,7 +344,28 @@ export function Purchases() {
               required
               value={day()}
             />
-            <Field name="add" label="Adicionar SKU">
+            {kind !== "merchandise" && (
+              <Field
+                name="amount"
+                label="Valor total do pedido (R$)"
+                type="number"
+                min={0.01}
+                step="0.01"
+                required
+              />
+            )}
+            <Field name="notes" label="Observação">
+              <textarea
+                name="notes"
+                maxLength={2000}
+                placeholder={
+                  kind === "bags"
+                    ? "Ex.: cor, tamanho, quantidade de pacotes ou prazo combinado"
+                    : "Detalhes importantes deste pedido"
+                }
+              />
+            </Field>
+            {kind === "merchandise" && <Field name="add" label="Adicionar SKU">
               <select
                 value=""
                 onChange={(e) => {
@@ -336,8 +386,8 @@ export function Purchases() {
                   </option>
                 ))}
               </select>
-            </Field>
-            {lines.map((l, i) => (
+            </Field>}
+            {kind === "merchandise" && lines.map((l, i) => (
               <div key={l.variant_id}>
                 <h3>
                   {
@@ -391,10 +441,11 @@ export function Purchases() {
                 </button>
               </div>
             ))}
-            <p className="fine">
-              Total{" "}
-              {money(lines.reduce((a, l) => a + l.quantity * l.unit_cost, 0))}
-            </p>
+            {kind === "merchandise" && (
+              <p className="fine">
+                Total {money(lines.reduce((a, l) => a + l.quantity * l.unit_cost, 0))}
+              </p>
+            )}
           </Form>
         </Sheet>
       )}
@@ -417,7 +468,14 @@ export function Purchases() {
                 setReceive(undefined);
             }}
           >
-            {data.purchase_order_items
+            {receive.kind !== "merchandise" && (
+              <Card className="purchase-receipt-summary">
+                <strong>{kindLabel(receive)}</strong>
+                <p>{money(receive.total)} será lançado em Contas a pagar sem alterar o estoque.</p>
+                {receive.notes && <p>Observação: {receive.notes}</p>}
+              </Card>
+            )}
+            {receive.kind === "merchandise" && data.purchase_order_items
               .filter(
                 (i) => i.purchase_id === receive.id && i.received < i.quantity,
               )
