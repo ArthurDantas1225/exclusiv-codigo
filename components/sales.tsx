@@ -433,12 +433,14 @@ export function Sales({ id }: { id?: string }) {
       return;
     }
     try {
+      const width = Math.min(420, element.scrollWidth || 420);
+      const height = Math.max(element.scrollHeight + 24, 680);
       const dataUrl = await toPng(element, {
         cacheBust: true,
-        backgroundColor: "#f4f1ed",
+        backgroundColor: "#ffffff",
         pixelRatio: 2,
-        width: 960,
-        height: Math.max(element.scrollHeight + 48, 760),
+        width,
+        height,
       });
       const file = dataUrlToFile(
         dataUrl,

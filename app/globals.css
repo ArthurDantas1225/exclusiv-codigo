@@ -2214,15 +2214,21 @@ textarea {
   gap: 5px;
 }
 .receipt-share-wrap {
-  display: flex;
+  display: inline-flex;
   justify-content: center;
-  width: 100%;
+  align-items: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  background: transparent;
+  padding: 0;
+  margin: 0 auto;
 }
 .receipt-art {
   width: min(100%, 420px);
-  background: linear-gradient(180deg, #fffdfb 0%, #f9f4ef 100%);
-  border: 2px solid #201614;
-  box-shadow: 0 14px 34px rgba(31, 24, 20, 0.12);
+  background: #fff;
+  border: 1px solid rgba(32, 22, 20, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 8px 18px rgba(31, 24, 20, 0.08);
   padding: 26px 24px 22px;
   min-height: 100%;
   margin: 0 auto;
