@@ -6,6 +6,7 @@ import { money } from "@/lib/format";
 import { whatsappOrderUrl } from "@/lib/catalog-order";
 import { galleryForColor, sortedColors, type CatalogImage } from "@/lib/catalog-selection";
 import { catalogCategories, categoryForProduct, categoryNames, searchable, type CatalogCategory } from "@/lib/catalog-taxonomy";
+import { savePendingOrder } from "@/lib/pending-orders";
 
 type CatalogVariant = { id: string; product_id: string; size: string; color: string; model: string; stock: number };
 type CatalogProduct = { id: string; name: string; category: string; subcategory?: string; collection: string; price: number; image: string | null; images: CatalogImage[]; variants: CatalogVariant[] };
@@ -121,6 +122,24 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
     setRemoved(null);
   }
   const whatsapp = cart.length && name.trim() ? whatsappOrderUrl(cart,name,payment,delivery) : undefined;
+  function persistOrder() {
+    if (!whatsapp || !name.trim() || !cart.length) return;
+    savePendingOrder({
+      customerName: name.trim(),
+      payment,
+      delivery,
+      items: cart.map((line) => ({
+        productId: line.product.id,
+        productName: line.product.name,
+        variantId: line.variant.id,
+        variantModel: line.variant.model,
+        variantColor: line.variant.color,
+        variantSize: line.variant.size,
+        quantity: line.quantity,
+        unitPrice: line.product.price,
+      })),
+    });
+  }
   return <main className="catalog-page">
     <header className="catalog-header"><div className="wordmark">EXCLUSIV<span>®</span></div><span>CATÁLOGO ONLINE</span><a className="catalog-header-cart" href="#pedido" aria-label={`Ver meu pedido, ${count} peças`}><ShoppingBag size={17} /> Pedido · {count}</a></header>
     <section className="catalog-intro">
@@ -176,7 +195,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
         <label htmlFor="buyer-name">Seu nome</label><input id="buyer-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="Como podemos chamar você?" />
         <label htmlFor="buyer-payment">Como prefere pagar?</label><select id="buyer-payment" value={payment} onChange={(e) => setPayment(e.target.value)}>{["Pix","Dinheiro","Cartão de débito","Cartão de crédito","A combinar"].map((item) => <option key={item}>{item}</option>)}</select>
         <label htmlFor="buyer-delivery">Como quer receber?</label><select id="buyer-delivery" value={delivery} onChange={(e) => setDelivery(e.target.value)}>{["Retirada na loja","Entrega a combinar"].map((item) => <option key={item}>{item}</option>)}</select>
-        <a className={`button primary full ${!whatsapp ? "disabled-link" : ""}`} href={whatsapp} target="_blank" rel="noopener noreferrer" onClick={(event) => { if (!whatsapp) { event.preventDefault(); setNotice("Informe seu nome e adicione uma peça."); } }}>Enviar pedido no WhatsApp <ArrowRight size={18} /></a>
+        <a className={`button primary full ${!whatsapp ? "disabled-link" : ""}`} href={whatsapp} target="_blank" rel="noopener noreferrer" onClick={(event) => { if (!whatsapp) { event.preventDefault(); setNotice("Informe seu nome e adicione uma peça."); return; } persistOrder(); }}>Enviar pedido no WhatsApp <ArrowRight size={18} /></a>
         <p className="fine">Seu pedido será enviado para (84) 99600-8220. A loja confirma disponibilidade e pagamento; o envio não reserva estoque.</p>
       </aside>
     </div>

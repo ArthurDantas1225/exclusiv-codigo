@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { toPng } from "html-to-image";
 import { useStore } from "./provider";
 import { Card, Empty, Sheet, Field, Form } from "./ui";
-import { money, dateTime, day, downloadCSV } from "@/lib/format";
+import { money, dateTime, day, downloadCSV, dataUrlToFile } from "@/lib/format";
 import { WhatsAppSheet } from "./customers";
 const statuses: Record<string, string> = {
   completed: "Concluída",
@@ -43,6 +44,44 @@ export function Sales({ id }: { id?: string }) {
   const receipt = sale
     ? `${companyName} · Comprovante de venda #${sale.number}\n${dateTime(sale.created_at)}\nCliente: ${customer?.name ?? "Consumidor final"}\nAtendimento: ${actorName(sale.created_by)}\n${items.map((i) => `${i.quantity} × ${i.product_name} (${i.variant_description}) — ${money(i.total)}`).join("\n")}\nSubtotal: ${money(sale.gross)}\nDesconto: ${money(sale.discount)}\nTotal: ${money(sale.total)}\n${payments.map((p) => `${p.method}: ${money(p.amount)}`).join("\n")}\nReferência: ${sale.id}\nEmitido pela ${companyName}. Comprovante não fiscal; não substitui NFC-e.`
     : "";
+  const shareReceiptImage = async () => {
+    const element = document.getElementById("comprovante-venda-wrapper");
+    if (!element || !sale) {
+      notify("Não foi possível localizar o comprovante para compartilhar.");
+      return;
+    }
+    try {
+      const width = Math.min(420, element.scrollWidth || 420);
+      const height = Math.max(element.scrollHeight + 24, 680);
+      const dataUrl = await toPng(element, {
+        cacheBust: true,
+        backgroundColor: "#ffffff",
+        pixelRatio: 2,
+        width,
+        height,
+      });
+      const file = dataUrlToFile(
+        dataUrl,
+        `comprovante-venda-${sale.number}-${sale.id.slice(0, 8)}.png`,
+      );
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: `Comprovante EXCLUSIV #${sale.number}`,
+          files: [file],
+        });
+        return;
+      }
+      const href = URL.createObjectURL(file);
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.download = file.name;
+      anchor.click();
+      URL.revokeObjectURL(href);
+      notify("Imagem do comprovante salva para download.");
+    } catch {
+      notify("Não foi possível gerar a imagem do comprovante.");
+    }
+  };
   return (
     <>
       <div className="page-heading">
@@ -60,50 +99,52 @@ export function Sales({ id }: { id?: string }) {
       {sale ? (
         <>
           <div className="dashboard-grid">
-            <div className="receipt" id="comprovante-venda">
-              <div className="receipt-topline">COMPROVANTE DIGITAL / {companyName.toUpperCase()}</div>
-              <div className="wordmark">EXCLUSIV®</div>
-              <p>Venda #{sale.number} · {dateTime(sale.created_at)}</p>
-              <div className="row">
-                <span>Cliente: {customer?.name ?? "Consumidor final"}</span>
-                <span>{statuses[sale.status]}</span>
-              </div>
-              <div className="row"><span>Atendimento</span><strong>{actorName(sale.created_by)}</strong></div>
-              {items.map((i) => (
-                <div className="row" key={i.id}>
-                  <div>
-                    <strong>
-                      {i.quantity} × {i.product_name}
-                    </strong>
-                    <small>
-                      {i.variant_description}
-                      {i.returned ? ` · ${i.returned} devolvido(s)` : ""}
-                    </small>
-                  </div>
-                  <span>{money(i.total)}</span>
+            <div className="receipt-share-wrap" id="comprovante-venda-wrapper">
+              <div className="receipt receipt-art" id="comprovante-venda">
+                <div className="receipt-topline">COMPROVANTE DIGITAL / {companyName.toUpperCase()}</div>
+                <div className="wordmark">EXCLUSIV®</div>
+                <p>Venda #{sale.number} · {dateTime(sale.created_at)}</p>
+                <div className="row">
+                  <span>Cliente: {customer?.name ?? "Consumidor final"}</span>
+                  <span>{statuses[sale.status]}</span>
                 </div>
-              ))}
-              <div className="total-row">
-                <span>Subtotal</span>
-                <span>{money(sale.gross)}</span>
-              </div>
-              <div className="total-row">
-                <span>Desconto</span>
-                <span>− {money(sale.discount)}</span>
-              </div>
-              <div className="total-row total">
-                <span>Total</span>
-                <span>{money(sale.total)}</span>
-              </div>
-              {payments.map((p) => (
-                  <div className="total-row" key={p.id}>
-                    <span>{p.method}</span>
-                    <span>{money(p.amount)}</span>
+                <div className="row"><span>Atendimento</span><strong>{actorName(sale.created_by)}</strong></div>
+                {items.map((i) => (
+                  <div className="row" key={i.id}>
+                    <div>
+                      <strong>
+                        {i.quantity} × {i.product_name}
+                      </strong>
+                      <small>
+                        {i.variant_description}
+                        {i.returned ? ` · ${i.returned} devolvido(s)` : ""}
+                      </small>
+                    </div>
+                    <span>{money(i.total)}</span>
                   </div>
                 ))}
-              <div className="receipt-signature"><strong>{companyName}</strong><span>Emitido pela loja · registro {sale.id.slice(0, 8).toUpperCase()}</span></div>
-              <small>Referência completa: {sale.id}</small>
-              <small className="receipt-legal">Comprovante não fiscal. Não substitui NFC-e ou nota fiscal autorizada pela SEFAZ.</small>
+                <div className="total-row">
+                  <span>Subtotal</span>
+                  <span>{money(sale.gross)}</span>
+                </div>
+                <div className="total-row">
+                  <span>Desconto</span>
+                  <span>− {money(sale.discount)}</span>
+                </div>
+                <div className="total-row total">
+                  <span>Total</span>
+                  <span>{money(sale.total)}</span>
+                </div>
+                {payments.map((p) => (
+                    <div className="total-row" key={p.id}>
+                      <span>{p.method}</span>
+                      <span>{money(p.amount)}</span>
+                    </div>
+                  ))}
+                <div className="receipt-signature"><strong>{companyName}</strong><span>Emitido pela loja · registro {sale.id.slice(0, 8).toUpperCase()}</span></div>
+                <small>Referência completa: {sale.id}</small>
+                <small className="receipt-legal">Comprovante não fiscal. Não substitui NFC-e ou nota fiscal autorizada pela SEFAZ.</small>
+              </div>
             </div>
             <Card>
               <h2>Detalhes da venda</h2>
@@ -128,25 +169,7 @@ export function Sales({ id }: { id?: string }) {
               </div>
               <p className="fine">{sale.notes || "Sem observações."}</p>
               <div className="inline-actions">
-                <button
-                  onClick={async () => {
-                    if (navigator.share) {
-                      try {
-                        await navigator.share({
-                          title: "Comprovante EXCLUSIV",
-                          text: receipt,
-                        });
-                      } catch {
-                        notify("Compartilhamento encerrado.");
-                      }
-                    } else {
-                      await navigator.clipboard.writeText(receipt);
-                      notify("Comprovante copiado.");
-                    }
-                  }}
-                >
-                  Compartilhar recibo
-                </button>
+                <button onClick={shareReceiptImage}>Compartilhar recibo</button>
                 {customer && (
                   <button onClick={() => setModal("whatsapp")}>WhatsApp</button>
                 )}

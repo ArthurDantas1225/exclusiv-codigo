@@ -17,6 +17,16 @@ export const dateTime = (value: string) =>
   }).format(new Date(value));
 export const cents = (value: FormDataEntryValue | null | string) =>
   Math.round(Number(String(value ?? "0").replace(",", ".")) * 100);
+export function dataUrlToFile(dataUrl: string, filename: string) {
+  const [header, rawData = ""] = dataUrl.split(",");
+  const mime = header.match(/data:(.*?);base64/)?.[1] ?? "image/png";
+  const binary = atob(rawData);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new File([bytes], filename, { type: mime });
+}
 export function whatsapp(phone: string, message: string) {
   let n = phone.replace(/\D/g, "");
   if (n.length === 10 || n.length === 11) n = "55" + n;

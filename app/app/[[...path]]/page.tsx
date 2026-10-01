@@ -5,6 +5,7 @@ import { Products } from "@/components/products";
 import { Customers } from "@/components/customers";
 import { POS } from "@/components/pos";
 import { Sales } from "@/components/sales";
+import { PendingOrders } from "@/components/pending-orders";
 import { Finance } from "@/components/finance";
 import { CRM } from "@/components/crm";
 import { Reports } from "@/components/reports";
@@ -29,6 +30,8 @@ export default function Page() {
       return <Customers id={id} />;
     case "vendas":
       return <Sales id={id} />;
+    case "pedidos":
+      return <PendingOrders />;
     case "financeiro":
       return id === "pagar" ? <Payables /> : <Finance section={id} />;
     case "fornecedores":

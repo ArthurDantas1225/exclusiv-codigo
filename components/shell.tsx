@@ -28,10 +28,12 @@ const nav = [
   ["vender", "Vender", ShoppingBag],
   ["estoque", "Estoque", Package],
   ["clientes", "Clientes", Users],
+  ["pedidos", "Pedidos", ClipboardList],
   ["mais", "Mais", Ellipsis],
 ] as const;
 const extra = [
   ["vendas", "Vendas", ClipboardList],
+  ["pedidos", "Pedidos", ClipboardList],
   ["financeiro", "Financeiro", Wallet],
   ["crm", "CRM", MessageCircle],
   ["relatorios", "Relatórios", ChartNoAxesCombined],
@@ -52,6 +54,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const activeNav = section === "vender" ? "vender" :
     ["estoque", "produtos", "inventario"].includes(section) ? "estoque" :
     section === "clientes" ? "clientes" :
+    section === "pedidos" ? "pedidos" :
     section === "" ? "" : "mais";
   const { demo, online, notice, undo, undoLast, data, loading, error, load, loadMore, busy } =
     useStore();

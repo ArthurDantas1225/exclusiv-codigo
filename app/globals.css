@@ -687,6 +687,26 @@ textarea {
   align-content: start;
   gap: 5px;
 }
+.receipt-share-wrap {
+  display: inline-flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  background: transparent;
+  padding: 0;
+  margin: 0 auto;
+}
+.receipt-art {
+  width: min(100%, 420px);
+  background: #fff;
+  border: 1px solid rgba(32, 22, 20, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 8px 18px rgba(31, 24, 20, 0.08);
+  padding: 26px 24px 22px;
+  min-height: 100%;
+  margin: 0 auto;
+}
 .receipt-topline {
   color: #9a4b25;
   font: 700 10px/1.5 monospace;
@@ -694,6 +714,14 @@ textarea {
   border-bottom: 2px solid #171717;
   padding-bottom: 10px;
   margin-bottom: 12px;
+  text-transform: uppercase;
+}
+.wordmark {
+  display: block;
+  margin: 4px 0 8px;
+  font: 900 26px/1 Arial, sans-serif;
+  letter-spacing: 0.12em;
+  color: #171717;
 }
 .receipt-signature {
   border-top: 1px dashed #999;
@@ -706,6 +734,18 @@ textarea {
 .receipt-signature strong { font: italic 800 24px Arial, sans-serif; letter-spacing: -1px; }
 .receipt-signature span { color: #555; font-size: 12px; }
 .receipt-legal { display: block; margin-top: 12px; }
+.receipt-art .row,
+.receipt-art .total-row {
+  border-bottom: 1px solid rgba(23, 23, 23, 0.08);
+  padding-bottom: 7px;
+}
+.receipt-art .total-row.total {
+  background: rgba(154, 75, 37, 0.05);
+  border-radius: 8px;
+  padding: 12px 10px;
+  margin-top: 8px;
+  border-bottom: none;
+}
 .attribution { display: block; margin: 8px 0 16px; }
 .team-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .team-invite { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 24px; }
@@ -965,6 +1005,64 @@ th {
 }
 .section-gap {
   margin-top: 24px;
+}
+.pending-order-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.pending-orders-toolbar {
+  display: grid;
+  grid-template-columns: 1.5fr 0.7fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.pending-search,
+.pending-filter {
+  margin-bottom: 0;
+}
+.pending-search-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  padding: 0 12px;
+}
+.pending-search-inner svg {
+  color: var(--muted);
+}
+.pending-search-inner input {
+  width: 100%;
+  background: transparent;
+  color: var(--text);
+  border: 0;
+  font-size: 14px;
+}
+.pending-order-card {
+  margin-bottom: 16px;
+}
+.pending-order-items {
+  margin: 10px 0 4px;
+}
+.pending-item-row {
+  padding: 10px 0;
+  font-size: 14px;
+}
+.pending-item-row span:last-child {
+  white-space: nowrap;
+}
+.pending-order-confirmation {
+  margin-top: 22px;
+}
+.confirmation-items {
+  margin: 18px 0 20px;
+}
+.gap-row {
+  align-items: flex-start;
 }
 .inline-actions {
   display: flex;
