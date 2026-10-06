@@ -1,5 +1,10 @@
 import { z } from "zod";
 import type { Store, Customer } from "./types";
+export function availableVariants<T extends { stock: number }>(
+  variants: readonly T[],
+) {
+  return variants.filter((variant) => variant.stock > 0);
+}
 export const saleSchema = z.object({
   request_id: z.uuid(),
   customer_id: z.uuid().nullable(),

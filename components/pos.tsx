@@ -11,7 +11,7 @@ import { money, cents } from "@/lib/format";
 import { methods, type ProductImage } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { coverPhoto, variantPhoto } from "@/lib/pos-photo";
-import { saleSchema } from "@/lib/domain";
+import { availableVariants, saleSchema } from "@/lib/domain";
 type Line = { variant_id: string; quantity: number; unit_price: number };
 export function POS() {
   const { data, run, busy, notify, online, demo } = useStore(),
@@ -73,7 +73,7 @@ export function POS() {
     visibleProducts = data.products.filter((p) => p.active &&
       (!selectedProduct || p.id === selectedProduct) &&
       (p.name + " " + p.category + " " + p.collection + " " +
-        data.product_variants.filter((v) => v.product_id === p.id)
+        availableVariants(data.product_variants.filter((v) => v.product_id === p.id))
           .map((v) => `${v.sku} ${v.barcode} ${v.color} ${v.size} ${v.model ?? ""}`).join(" "))
         .toLowerCase().includes(search.toLowerCase())),
     cash = payments
@@ -110,7 +110,7 @@ export function POS() {
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  const v = data.product_variants.find(
+                  const v = availableVariants(data.product_variants).find(
                     (v) => v.barcode === search || v.sku === search,
                   );
                   if (v) {
@@ -147,14 +147,15 @@ export function POS() {
             {visibleProducts
               .map((p) => {
                 const variants = data.product_variants.filter((v) => v.product_id === p.id);
+                const available = availableVariants(variants);
                 const units = variants.reduce((sum, variant) => sum + variant.stock, 0);
                 const averageCost = variants.length
                   ? Math.round(variants.reduce((sum, variant) => sum + variant.cost * (units ? variant.stock : 1), 0) / (units || variants.length))
                   : 0;
                 const cover = coverPhoto(photosByProduct.get(p.id) ?? []);
                 const coverUrl = cover && photoUrls[cover.id];
-                const colors = new Set(variants.map((variant) => variant.color.trim()).filter(Boolean)).size;
-                const sizes = new Set(variants.map((variant) => variant.size.trim()).filter(Boolean)).size;
+                const colors = new Set(available.map((variant) => variant.color.trim()).filter(Boolean)).size;
+                const sizes = new Set(available.map((variant) => variant.size.trim()).filter(Boolean)).size;
                 return <Card className="product-card pos-product-card" key={p.id}>
                   <div className="pos-product-head">
                     <div className="pos-product-photo">
@@ -176,7 +177,7 @@ export function POS() {
                       <Link className="button ghost" href={`/app/produtos/${p.id}`}>
                         Complete tamanho, cor e estoque para vender
                       </Link>}
-                    {variants.map((v) => {
+                    {available.map((v) => {
                         const line = cart.find((l) => l.variant_id === v.id);
                         return (
                           <button
@@ -206,6 +207,9 @@ export function POS() {
                           </button>
                         );
                       })}
+                    {!!variants.length && !available.length && (
+                      <p className="fine">Sem variações disponíveis em estoque.</p>
+                    )}
                   </div>
                 </Card>;
               })}

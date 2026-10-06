@@ -1,8 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { availableVariants } from "../lib/domain.ts";
 import { whatsappOrderUrl } from "../lib/catalog-order.ts";
 import { galleryForColor, imagesForColor } from "../lib/catalog-selection.ts";
 import { readPendingOrders, savePendingOrder, removePendingOrder } from "../lib/pending-orders.ts";
+
+test("available variants only include combinations with positive stock", () => {
+  const variants = [
+    { id: "black-g", stock: 3 },
+    { id: "red-m", stock: 1 },
+    { id: "red-g", stock: 0 },
+    { id: "black-m", stock: 0 },
+  ];
+  assert.deepEqual(availableVariants(variants).map((variant) => variant.id), [
+    "black-g",
+    "red-m",
+  ]);
+});
 
 test("catalog builds a complete WhatsApp order without placing a sale", () => {
   const url = new URL(whatsappOrderUrl([
