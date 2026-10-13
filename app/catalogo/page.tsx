@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PublicCatalog, type CatalogData } from "@/components/public-catalog";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 export const metadata: Metadata = {
   title: "Catálogo EXCLUSIV",
   description: "Escolha peças, tamanhos e cores e envie seu pedido para a EXCLUSIV pelo WhatsApp.",
@@ -15,7 +15,7 @@ export default async function CatalogPage() {
     try {
       const response = await fetch(`${base}/functions/v1/catalog`, {
         headers: { apikey: key },
-        cache: "no-store",
+        next: { revalidate },
         signal: AbortSignal.timeout(8000),
       });
       if (response.ok) catalog = await response.json() as CatalogData;
