@@ -24,6 +24,7 @@ export function Products({
   const router = useRouter();
   const [clock] = useState(() => Date.now());
   const [photoUrls, setPhotoUrls] = useState<Record<string,string>>({});
+  const [syncingCatalog, setSyncingCatalog] = useState(false);
   const [modal, setModal] = useState(params.get("novo") ? "product" : ""),
     [search, setSearch] = useState(""),
     [filter, setFilter] = useState("Todos"),
@@ -118,7 +119,17 @@ export function Products({
           </p>
         </div>
         <div className="inline-actions">
-          {!id && profile?.role === "admin" && <button className="ghost" disabled={busy} onClick={() => void requestCatalogSync().then(() => notify("Catálogo sincronizado.")).catch((error) => notify(error instanceof Error ? error.message : "Não foi possível sincronizar."))}><Globe2 size={18} /> Sincronizar catálogo</button>}
+          {!id && profile?.role === "admin" && <button className="ghost" disabled={busy || syncingCatalog} onClick={async () => {
+            setSyncingCatalog(true);
+            try {
+              await requestCatalogSync(data.products.map((item) => item.id));
+              notify("Catálogo e fotos sincronizados.");
+            } catch (error) {
+              notify(error instanceof Error ? error.message : "Não foi possível sincronizar.");
+            } finally {
+              setSyncingCatalog(false);
+            }
+          }}><Globe2 size={18} /> {syncingCatalog ? "Enviando fotos…" : "Sincronizar catálogo"}</button>}
           <button
             className="primary"
             disabled={busy}

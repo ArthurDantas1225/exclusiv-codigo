@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { buildCatalogProjection, shouldApplyVersion } from "../lib/catalog-sync.ts";
+import { buildCatalogProjection, runCatalogSyncBatches, shouldApplyVersion } from "../lib/catalog-sync.ts";
 
 test("catalog projection excludes private cost and internal inventory fields", () => {
   const projection = buildCatalogProjection({
@@ -36,4 +36,17 @@ test("snapshot migration avoids a PL/pgSQL product_id name collision", () => {
   const repair = readFileSync(new URL("../supabase-catalog/migrations/20261014160000_fix_catalog_snapshot.sql", import.meta.url), "utf8");
   assert.match(repair, /snapshot_product_id uuid/);
   assert.doesNotMatch(repair, /current\.product_id\s*=\s*product_id/);
+});
+
+test("full catalog recovery copies products in resumable batches", async () => {
+  const calls: string[][] = [];
+  const ids = Array.from({ length: 12 }, (_, index) => `product-${index}`);
+
+  await runCatalogSyncBatches(ids, async (batch) => {
+    calls.push(batch);
+    return { failed: [] };
+  });
+
+  assert.deepEqual(calls.map((batch) => batch.length), [5, 5, 2]);
+  assert.deepEqual(calls.flat(), ids);
 });
