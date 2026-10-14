@@ -61,7 +61,7 @@ export function ProductEditor({ product, variants, sizeOptions, onSaved }: {
     if (!supabase || !profile) throw new Error("Sessão indisponível para fotos.");
     const path = `${profile.organization_id}/${productId}/${crypto.randomUUID()}.webp`;
     const blob = await compressPhoto(file);
-    const { error } = await supabase.storage.from("products").upload(path, blob, { contentType: "image/webp" });
+    const { error } = await supabase.storage.from("products").upload(path, blob, { contentType: "image/webp", cacheControl: "31536000" });
     if (error) throw error;
     const { error: metadataError } = await supabase.rpc("save_product_image", {
       p: { product_id: productId, path, color, view, is_primary: primary },

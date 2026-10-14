@@ -159,7 +159,7 @@ export function POS() {
                 return <Card className="product-card pos-product-card" key={p.id}>
                   <div className="pos-product-head">
                     <div className="pos-product-photo">
-                      {coverUrl ? <Image unoptimized src={coverUrl} alt={p.name} width={180} height={180} /> : <ImageOff size={27} aria-label="Produto sem foto" />}
+                      {coverUrl ? <Image src={coverUrl} alt={p.name} width={180} height={180} /> : <ImageOff size={27} aria-label="Produto sem foto" />}
                     </div>
                     <div className="pos-product-summary">
                       <div className="product-meta">{p.category}{p.subcategory ? ` · ${p.subcategory}` : ""}</div>
@@ -247,7 +247,7 @@ export function POS() {
                   <header>
                     <div className="pos-cart-product">
                       <div className="pos-cart-photo">
-                        {photoUrl ? <Image unoptimized src={photoUrl} alt={`${p.name} · ${v.color}`} width={112} height={112} /> : <ImageOff size={22} aria-label="Produto sem foto" />}
+                        {photoUrl ? <Image src={photoUrl} alt={`${p.name} · ${v.color}`} width={112} height={112} /> : <ImageOff size={22} aria-label="Produto sem foto" />}
                       </div>
                       <div>
                         <strong>{p.name}</strong>

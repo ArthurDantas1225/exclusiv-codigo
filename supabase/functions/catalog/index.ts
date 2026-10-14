@@ -10,7 +10,7 @@ Deno.serve(async (request: Request) => {
     "access-control-allow-origin": origins.has(origin) ? origin : site,
     "access-control-allow-headers": "apikey, content-type",
     "access-control-allow-methods": "GET, OPTIONS",
-    "cache-control": "public, max-age=15",
+    "cache-control": "public, max-age=300, s-maxage=300, stale-while-revalidate=3600",
     vary: "Origin",
   };
   const reply = (status: number, body: unknown) =>
@@ -53,12 +53,9 @@ Deno.serve(async (request: Request) => {
   }
   const media = new Map<string, { id: string; url: string; color: string; view: string; is_primary: boolean }[]>();
   if (selectedImages.length) {
-    const { data: signed, error: signedError } = await admin.storage.from("products")
-      .createSignedUrls(selectedImages.map((image) => image.path), 1800);
-    if (signedError) return reply(503, { error: "Fotos indisponíveis." });
-    selectedImages.forEach((image, index) => {
-      const url = signed?.[index]?.signedUrl;
-      if (!url) return;
+    selectedImages.forEach((image) => {
+      const { data } = admin.storage.from("products").getPublicUrl(image.path);
+      const url = data.publicUrl;
       media.set(image.product_id, [...(media.get(image.product_id) ?? []), {
         id: image.id, url, color: image.color, view: image.view, is_primary: image.is_primary,
       }]);
