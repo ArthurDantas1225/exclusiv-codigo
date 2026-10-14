@@ -31,3 +31,9 @@ test("catalog synchronization runs beside the catalog data and validates the ERP
   assert.match(handler, /auth\.getUser\(token\)/);
   assert.doesNotMatch(handler, /CATALOG_SUPABASE_SERVICE_ROLE_KEY/);
 });
+
+test("snapshot migration avoids a PL/pgSQL product_id name collision", () => {
+  const repair = readFileSync(new URL("../supabase-catalog/migrations/20261014160000_fix_catalog_snapshot.sql", import.meta.url), "utf8");
+  assert.match(repair, /snapshot_product_id uuid/);
+  assert.doesNotMatch(repair, /current\.product_id\s*=\s*product_id/);
+});
