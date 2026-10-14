@@ -159,3 +159,5 @@ Clientes podem ser editados e anonimizados quando o saldo está zerado. O histó
 - Supabase Functions: https://supabase.com/docs/guides/database/functions
 - Supabase backups: https://supabase.com/docs/guides/platform/backups
 - Vercel Node: https://vercel.com/docs/functions/runtimes/node-js
+
+> Recuperação de serviço: cache de imagens públicas e compressão de novos uploads ativados em 13/10/2026.
