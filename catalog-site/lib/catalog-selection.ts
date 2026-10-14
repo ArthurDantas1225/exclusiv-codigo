@@ -1,13 +1,13 @@
 export type CatalogImage = { id: string; url: string; color: string; view: string; is_primary: boolean };
 
-export function imagesForColor(images: CatalogImage[], color: string, _colorCount: number) {
+export function imagesForColor(images: CatalogImage[], color: string) {
   const exact = images.filter((image) => image.color.trim().toLocaleLowerCase("pt-BR") === color.trim().toLocaleLowerCase("pt-BR"));
   if (exact.length) return exact;
   return images.filter((image) => !image.color.trim());
 }
 
 export function galleryForColor(images: CatalogImage[], color: string) {
-  const preferred = imagesForColor(images,color,0);
+  const preferred = imagesForColor(images,color);
   return [...preferred,...images.filter((image) => !preferred.some((item) => item.id === image.id))];
 }
 
