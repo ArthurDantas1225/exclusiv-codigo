@@ -34,3 +34,8 @@ test("production catalog origin is allowed by the order function", () => {
   const handler = readFileSync(new URL("../../supabase-catalog/functions/create-order/index.ts", import.meta.url), "utf8");
   assert.match(handler, /https:\/\/exclusiv-catalogo\.vercel\.app/);
 });
+
+test("duplicate variants are rejected before an order total can diverge from its items", () => {
+  const handler = readFileSync(new URL("../../supabase-catalog/functions/create-order/index.ts", import.meta.url), "utf8");
+  assert.match(handler, /new Set\(variantIds\)\.size !== variantIds\.length/);
+});

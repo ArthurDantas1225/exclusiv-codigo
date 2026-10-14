@@ -23,6 +23,8 @@ function validate(input: Input) {
   if (!input.delivery?.trim() || input.delivery.length > 240) return "Forma de entrega inválida.";
   if (!Array.isArray(input.items) || !input.items.length || input.items.length > 30) return "Revise os itens do pedido.";
   if (input.items.some((item) => !validUuid(item.variantId) || !Number.isInteger(item.quantity) || item.quantity! < 1 || item.quantity! > 20)) return "Quantidade ou opção inválida.";
+  const variantIds = input.items.map((item) => item.variantId);
+  if (new Set(variantIds).size !== variantIds.length) return "Uma opção não pode aparecer duas vezes no pedido.";
   return null;
 }
 
