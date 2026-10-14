@@ -6,6 +6,7 @@ import { ProductPhotos } from "./product-photos";
 import { ProductEditor } from "./product-editor";
 import { StockProductCard } from "./stock-product-card";
 import { supabase } from "@/lib/supabase";
+import { requestCatalogSync } from "@/lib/catalog-sync";
 import { Plus, ArrowUpRight, Download, Globe2, Trash2, RotateCcw } from "lucide-react";
 import { useStore } from "./provider";
 import { Card, Stat, Empty, Sheet, Field, Form } from "./ui";
@@ -18,7 +19,7 @@ export function Products({
   id?: string;
   stock?: boolean;
 }) {
-  const { data, run, busy, notify } = useStore();
+  const { data, profile, run, busy, notify } = useStore();
   const params = useSearchParams();
   const router = useRouter();
   const [clock] = useState(() => Date.now());
@@ -116,21 +117,24 @@ export function Products({
               : "Cada cor. Cada tamanho. Cada peça."}
           </p>
         </div>
-        <button
-          className="primary"
-          disabled={busy}
-          onClick={() => {
-            if (product?.archived_at) {
-              void run("product_archive", { product_id:product.id, archive:false });
-              return;
-            }
-            setEdit(product);
-            setModal("product");
-          }}
-        >
-          {product?.archived_at ? <RotateCcw size={18} /> : <Plus size={18} />}
-          {product?.archived_at ? "Restaurar" : product ? "Editar tudo" : "Novo produto"}
-        </button>
+        <div className="inline-actions">
+          {!id && profile?.role === "admin" && <button className="ghost" disabled={busy} onClick={() => void requestCatalogSync().then(() => notify("Catálogo sincronizado.")).catch((error) => notify(error instanceof Error ? error.message : "Não foi possível sincronizar."))}><Globe2 size={18} /> Sincronizar catálogo</button>}
+          <button
+            className="primary"
+            disabled={busy}
+            onClick={() => {
+              if (product?.archived_at) {
+                void run("product_archive", { product_id:product.id, archive:false });
+                return;
+              }
+              setEdit(product);
+              setModal("product");
+            }}
+          >
+            {product?.archived_at ? <RotateCcw size={18} /> : <Plus size={18} />}
+            {product?.archived_at ? "Restaurar" : product ? "Editar tudo" : "Novo produto"}
+          </button>
+        </div>
       </div>
       {stock && (
         <div className="stats">

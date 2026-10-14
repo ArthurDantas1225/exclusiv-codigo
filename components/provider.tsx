@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "@/lib/supabase";
+import { requestCatalogSync } from "@/lib/catalog-sync";
 import { emptyStore, type Store, type Profile } from "@/lib/types";
 import { useRouter, usePathname } from "next/navigation";
 interface Context {
@@ -30,6 +31,7 @@ interface Context {
   ) => Promise<string | undefined>;
   notify: (message: string) => void;
 }
+const catalogActions = new Set(["product_grid", "product_archive", "image_save", "image_hidden", "catalog_visibility", "sale", "stock", "purchase", "receive_purchase", "cancel", "return", "import"]);
 const Ctx = createContext<Context | null>(null);
 const tableOrder = (table: string) =>
   table === "app_settings"
@@ -293,7 +295,10 @@ export function Provider({ children }: { children: ReactNode }) {
             : await supabase!.rpc("command", { action, p: payload });
       if (e) throw new Error(e.message);
       await load();
-      notify("Operação registrada.");
+      if (catalogActions.has(action)) {
+        try { await requestCatalogSync(); notify("Operação registrada e catálogo atualizado."); }
+        catch { notify("Operação salva. A atualização do catálogo ficou pendente; use Sincronizar catálogo para tentar novamente."); }
+      } else notify("Operação registrada.");
       if (!suppressUndo.current) {
         if (action === "product_archive") setUndo({ label: p.archive ? "Produto arquivado" : "Produto restaurado", action, payload: { product_id: p.product_id, archive: !p.archive } });
         else if (action === "image_hidden") setUndo({ label: p.hide ? "Foto removida" : "Foto restaurada", action, payload: { image_id: p.image_id, hide: !p.hide } });
