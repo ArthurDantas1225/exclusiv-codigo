@@ -23,7 +23,7 @@ export function StockProductCard({ product, variants, photo, onAdjust, onEdit }:
   return <Card className="stock-product-card">
     <div className="stock-product-head">
       <Link className="stock-product-image" href={`/app/produtos/${product.id}`} aria-label={`Ver ${product.name}`}>
-        {photo ? <Image unoptimized src={photo} alt={product.name} width={420} height={420} /> : <ImageOff size={30} aria-hidden="true" />}
+        {photo ? <Image src={photo} alt={product.name} width={420} height={420} /> : <ImageOff size={30} aria-hidden="true" />}
       </Link>
       <div className="stock-product-title">
         <small>{category}{product.subcategory ? ` · ${product.subcategory}` : ""}</small>

@@ -3,6 +3,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { RotateCcw, Trash2, Star } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { photoTargetSize } from "@/lib/photo-compression";
 import { useStore } from "./provider";
 import { Card } from "./ui";
 
@@ -11,15 +12,15 @@ export async function compressPhoto(file: File) {
     throw new Error("Envie JPG, PNG ou WebP.");
   if (file.size > 20000000) throw new Error("Imagem maior que 20 MB.");
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+  const size = photoTargetSize(bitmap.width, bitmap.height);
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
+  canvas.width = size.width;
+  canvas.height = size.height;
   canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
   return new Promise<Blob>((resolve, reject) => canvas.toBlob(
     (blob) => blob ? resolve(blob) : reject(new Error("Não foi possível comprimir a imagem.")),
-    "image/webp", 0.82,
+    "image/webp", 0.72,
   ));
 }
 
@@ -52,7 +53,7 @@ export function ProductPhotos({ productId }: { productId: string }) {
       const path = `${profile.organization_id}/${productId}/${crypto.randomUUID()}.webp`;
       try {
         const blob = await compressPhoto(file);
-        const { error } = await supabase.storage.from("products").upload(path, blob, { contentType: "image/webp" });
+        const { error } = await supabase.storage.from("products").upload(path, blob, { contentType: "image/webp", cacheControl: "31536000" });
         if (error) throw error;
         if (!await run("image_save", { product_id:productId, path, color, view, is_primary:firstPhoto })) {
           await supabase.storage.from("products").remove([path]);
@@ -67,7 +68,7 @@ export function ProductPhotos({ productId }: { productId: string }) {
     <div className="card-head"><div><h2>Fotos do produto</h2><p className="fine">Identifique cor e lado. O cliente verá as fotos correspondentes à cor escolhida.</p></div></div>
     <div className="photo-manager-grid">
       {active.map((image) => <div className="photo-manager-item" key={image.id}>
-        {urls[image.id] && <Image unoptimized width={600} height={600} src={urls[image.id]} alt={`${image.color || "Produto"} · ${views[image.view ?? "other"]}`} />}
+        {urls[image.id] && <Image width={600} height={600} src={urls[image.id]} alt={`${image.color || "Produto"} · ${views[image.view ?? "other"]}`} />}
         <div className="photo-manager-fields">
           <select aria-label="Cor da foto" defaultValue={image.color ?? ""} onChange={(e) => void run("image_save", { id:image.id, product_id:productId, color:e.target.value, view:image.view ?? "other" })}>
             <option value="">Todas as cores</option>
@@ -90,7 +91,7 @@ export function ProductPhotos({ productId }: { productId: string }) {
       <label className="field"><span>{uploading ? "Enviando fotos…" : "Adicionar fotos (várias de uma vez)"}</span><input type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={uploading || demo} onChange={(e) => void upload(e.target.files)} /></label>
     </div>
     {!!removed.length && <details className="section-gap"><summary>Fotos excluídas ({removed.length}) · restaurar</summary><div className="photo-manager-grid section-gap">{removed.map((image) => <div className="photo-manager-item" key={image.id}>
-      {urls[image.id] && <Image unoptimized width={600} height={600} src={urls[image.id]} alt="Foto excluída" />}
+      {urls[image.id] && <Image width={600} height={600} src={urls[image.id]} alt="Foto excluída" />}
       <small>{image.color || "Todas as cores"} · {views[image.view ?? "other"]}</small>
       <button type="button" className="ghost" disabled={busy} onClick={() => void run("image_hidden", { image_id:image.id, hide:false })}><RotateCcw size={16} /> Restaurar foto</button>
     </div>)}</div></details>}
