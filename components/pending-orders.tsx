@@ -7,7 +7,15 @@ import { CheckCheck, Clock3, Search, Trash2 } from "lucide-react";
 import { useStore } from "./provider";
 import { Card, Empty, Field } from "./ui";
 import { money, dateTime } from "@/lib/format";
-import { readPendingOrders, removePendingOrder, type PendingOrder } from "@/lib/pending-orders";
+import {
+  cancelRemotePendingOrder,
+  confirmRemotePendingOrder,
+  importLegacyPendingOrder,
+  listRemotePendingOrders,
+  migrateLegacyOrders,
+  saleRequestId,
+  type PendingOrder,
+} from "@/lib/pending-orders";
 import { methods } from "@/lib/types";
 import { saleSchema } from "@/lib/domain";
 
@@ -23,10 +31,23 @@ export function PendingOrders() {
   const [paymentFilter, setPaymentFilter] = useState("Todos");
 
   useEffect(() => {
-    setOrders(readPendingOrders());
-  }, []);
+    let active = true;
+    void (async () => {
+      try {
+        await migrateLegacyOrders(importLegacyPendingOrder);
+        const next = await listRemotePendingOrders();
+        if (active) setOrders(next);
+      } catch (error) {
+        if (active) notify(error instanceof Error ? error.message : "Não foi possível carregar os pedidos.");
+      }
+    })();
+    return () => { active = false; };
+  }, [notify]);
 
-  const refresh = () => setOrders(readPendingOrders());
+  async function refresh() {
+    try { setOrders(await listRemotePendingOrders()); }
+    catch (error) { notify(error instanceof Error ? error.message : "Não foi possível atualizar os pedidos."); }
+  }
 
   const visibleOrders = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -60,7 +81,7 @@ export function PendingOrders() {
 
     const total = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
     const payload = {
-      request_id: crypto.randomUUID(),
+      request_id: saleRequestId(order),
       customer_id: customerId || null,
       discount: 0,
       notes: notes || `Pedido pendente de ${order.customerName} · Pagamento: ${order.payment} · Entrega: ${order.delivery}`,
@@ -78,12 +99,16 @@ export function PendingOrders() {
     const id = await run("sale", parsed.data);
     if (!id) return;
 
-    removePendingOrder(order.id);
+    try { await confirmRemotePendingOrder(order.id, id); }
+    catch (error) {
+      notify(error instanceof Error ? error.message : "Venda salva; tente concluir o pedido novamente.");
+      return;
+    }
     setSelected(null);
     setCustomerId("");
     setPaymentMethod("Pix");
     setNotes("");
-    refresh();
+    await refresh();
     router.push(`/app/vendas/${id}?sucesso=1`);
   }
 
@@ -187,8 +212,9 @@ export function PendingOrders() {
                       <button
                         className="ghost"
                         onClick={() => {
-                          removePendingOrder(order.id);
-                          refresh();
+                          void cancelRemotePendingOrder(order.id)
+                            .then(refresh)
+                            .catch((error) => notify(error instanceof Error ? error.message : "Não foi possível cancelar o pedido."));
                         }}
                       >
                         <Trash2 size={16} /> Excluir

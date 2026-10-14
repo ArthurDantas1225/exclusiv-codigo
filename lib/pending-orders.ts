@@ -1,3 +1,5 @@
+import { supabase } from "./supabase.ts";
+
 export type PendingOrderItem = {
   productId: string;
   productName: string;
@@ -11,6 +13,8 @@ export type PendingOrderItem = {
 
 export type PendingOrder = {
   id: string;
+  code?: string;
+  status?: string;
   createdAt: string;
   customerName: string;
   payment: string;
@@ -79,4 +83,97 @@ export function removePendingOrder(id: string, storage?: StorageLike) {
   } catch {
     // Ignore storage failures to keep the app resilient.
   }
+}
+
+type RemoteOrderRow = {
+  id: string;
+  code: string;
+  created_at: string;
+  customer_name: string;
+  payment: string;
+  delivery: string;
+  status: string;
+  catalog_order_items: {
+    product_id: string;
+    product_name: string;
+    variant_id: string;
+    model: string;
+    color: string;
+    size: string;
+    quantity: number;
+    unit_price: number;
+  }[];
+};
+
+export function remoteOrderFromRow(row: RemoteOrderRow): PendingOrder {
+  return {
+    id: row.id,
+    code: row.code,
+    status: row.status,
+    createdAt: row.created_at,
+    customerName: row.customer_name,
+    payment: row.payment,
+    delivery: row.delivery,
+    items: row.catalog_order_items.map((item) => ({
+      productId: item.product_id,
+      productName: item.product_name,
+      variantId: item.variant_id,
+      variantModel: item.model,
+      variantColor: item.color,
+      variantSize: item.size,
+      quantity: item.quantity,
+      unitPrice: item.unit_price,
+    })),
+  };
+}
+
+export function saleRequestId(order: PendingOrder) {
+  return order.id;
+}
+
+export async function migrateLegacyOrders(
+  send: (order: PendingOrder) => Promise<boolean>,
+  storage?: StorageLike,
+) {
+  for (const order of readPendingOrders(storage)) {
+    try {
+      if (await send(order)) removePendingOrder(order.id, storage);
+    } catch {
+      // Keep invalid legacy orders locally so one old item cannot hide new remote orders.
+    }
+  }
+}
+async function invoke(body: Record<string, unknown>) {
+  if (!supabase) throw new Error("Aplicativo não conectado.");
+  const { data, error } = await supabase.functions.invoke("catalog-orders", { body });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(String(data.error));
+  return data;
+}
+
+export async function listRemotePendingOrders() {
+  const data = await invoke({ action: "list" });
+  return ((data?.orders ?? []) as RemoteOrderRow[]).map(remoteOrderFromRow);
+}
+
+export async function importLegacyPendingOrder(order: PendingOrder) {
+  await invoke({
+    action: "import_legacy",
+    order: {
+      idempotencyKey: order.id,
+      customerName: order.customerName,
+      payment: order.payment,
+      delivery: order.delivery,
+      items: order.items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
+    },
+  });
+  return true;
+}
+
+export async function confirmRemotePendingOrder(orderId: string, saleId: string) {
+  await invoke({ action: "confirm", order_id: orderId, sale_id: saleId });
+}
+
+export async function cancelRemotePendingOrder(orderId: string) {
+  await invoke({ action: "cancel", order_id: orderId });
 }
