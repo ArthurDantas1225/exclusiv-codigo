@@ -3,6 +3,8 @@ import { buildCatalogProjection } from "../_shared/catalog-projection.ts";
 
 const appOrigin = "https://exclusiv-codigo.vercel.app";
 const allowedOrigins = new Set([appOrigin, "http://localhost:3000"]);
+const erpUrl = "https://rznnojrtgolekdkcvxnv.supabase.co";
+const erpKey = "sb_publishable_dggLRkn1mzZJFu6_Bp0Rsw_L56cJlu0";
 
 Deno.serve(async (request: Request) => {
   const origin = request.headers.get("origin") ?? "";
@@ -17,15 +19,16 @@ Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
   if (request.method !== "POST" || (origin && !allowedOrigins.has(origin))) return reply(403, { error: "Origem não permitida." });
 
-  const sourceUrl = Deno.env.get("SUPABASE_URL");
-  const sourceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const catalogUrl = Deno.env.get("CATALOG_SUPABASE_URL");
-  const catalogKey = Deno.env.get("CATALOG_SUPABASE_SERVICE_ROLE_KEY");
-  if (!sourceUrl || !sourceKey || !catalogUrl || !catalogKey) return reply(503, { error: "Sincronização não configurada." });
+  const catalogUrl = Deno.env.get("SUPABASE_URL");
+  const catalogKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!catalogUrl || !catalogKey) return reply(503, { error: "Sincronização não configurada." });
 
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return reply(401, { error: "Sessão necessária." });
-  const source = createClient(sourceUrl, sourceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const source = createClient(erpUrl, erpKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { authorization: `Bearer ${token}` } },
+  });
   const { data: auth, error: authError } = await source.auth.getUser(token);
   if (authError || !auth.user) return reply(401, { error: "Sessão inválida." });
   const { data: profile } = await source.from("profiles").select("organization_id,role").eq("id", auth.user.id).eq("active", true).maybeSingle();

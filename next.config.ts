@@ -21,5 +21,9 @@ const config: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    const catalogUrl = process.env.CATALOG_SITE_URL;
+    return catalogUrl ? [{ source: "/catalogo", destination: catalogUrl, permanent: false }] : [];
+  },
 };
 export default config;

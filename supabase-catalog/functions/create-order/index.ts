@@ -35,7 +35,7 @@ const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "curren
 
 Deno.serve(async (request: Request) => {
   const origin = request.headers.get("origin") ?? "";
-  const allowed = new Set([Deno.env.get("CATALOG_SITE_ORIGIN") ?? "", "http://localhost:3000"]);
+  const allowed = new Set(["https://exclusiv-catalogo.vercel.app", Deno.env.get("CATALOG_SITE_ORIGIN") ?? "", "http://localhost:3000"]);
   const cors = {
     "access-control-allow-origin": allowed.has(origin) ? origin : "",
     "access-control-allow-headers": "content-type",

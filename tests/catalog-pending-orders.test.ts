@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { migrateLegacyOrders, remoteOrderFromRow, saleRequestId, savePendingOrder } from "../lib/pending-orders.ts";
 
@@ -40,4 +41,12 @@ test("a rejected legacy import does not block loading remote orders", async () =
   savePendingOrder({ customerName: "Cris", payment: "Pix", delivery: "Retirada", items: [] }, storage);
   await assert.doesNotReject(() => migrateLegacyOrders(async () => { throw new Error("invalid legacy item"); }, storage));
   assert.match(storage.getItem("exclusiv-pending-orders") ?? "", /Cris/);
+});
+
+test("ERP calls the catalog bridge directly without a cross-project service key", () => {
+  const client = readFileSync(new URL("../lib/pending-orders.ts", import.meta.url), "utf8");
+  const bridge = readFileSync(new URL("../supabase-catalog/functions/catalog-orders/index.ts", import.meta.url), "utf8");
+  assert.match(client, /sduacssupdhzwqmlijqv\.supabase\.co\/functions\/v1\/catalog-orders/);
+  assert.doesNotMatch(client, /CATALOG_SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(bridge, /auth\.getUser\(token\)/);
 });

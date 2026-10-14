@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { buildCatalogProjection, shouldApplyVersion } from "../lib/catalog-sync.ts";
 
@@ -21,4 +22,12 @@ test("older catalog snapshots never replace a newer version", () => {
   assert.equal(shouldApplyVersion(20, 19), false);
   assert.equal(shouldApplyVersion(20, 20), true);
   assert.equal(shouldApplyVersion(20, 21), true);
+});
+
+test("catalog synchronization runs beside the catalog data and validates the ERP user", () => {
+  const client = readFileSync(new URL("../lib/catalog-sync.ts", import.meta.url), "utf8");
+  const handler = readFileSync(new URL("../supabase-catalog/functions/sync-catalog/index.ts", import.meta.url), "utf8");
+  assert.match(client, /sduacssupdhzwqmlijqv\.supabase\.co\/functions\/v1\/sync-catalog/);
+  assert.match(handler, /auth\.getUser\(token\)/);
+  assert.doesNotMatch(handler, /CATALOG_SUPABASE_SERVICE_ROLE_KEY/);
 });

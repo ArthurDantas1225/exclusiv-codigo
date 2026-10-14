@@ -145,9 +145,16 @@ export async function migrateLegacyOrders(
 }
 async function invoke(body: Record<string, unknown>) {
   if (!supabase) throw new Error("Aplicativo não conectado.");
-  const { data, error } = await supabase.functions.invoke("catalog-orders", { body });
-  if (error) throw new Error(error.message);
-  if (data?.error) throw new Error(String(data.error));
+  const { data: session } = await supabase.auth.getSession();
+  const token = session.session?.access_token;
+  if (!token) throw new Error("Sessão necessária.");
+  const response = await fetch("https://sduacssupdhzwqmlijqv.supabase.co/functions/v1/catalog-orders", {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data?.error) throw new Error(String(data?.error ?? "Não foi possível acessar os pedidos."));
   return data;
 }
 

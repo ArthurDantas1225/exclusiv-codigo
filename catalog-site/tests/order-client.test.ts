@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { submitCatalogOrder, type CatalogOrderInput } from "../lib/order-client.ts";
 
@@ -27,4 +28,9 @@ test("order submission uses the canonical receipt returned by the server", async
 test("order submission preserves a server rejection before WhatsApp", async () => {
   const fetcher: typeof fetch = async () => new Response(JSON.stringify({ error: "Estoque insuficiente para esta opção." }), { status: 409 });
   await assert.rejects(() => submitCatalogOrder(input, fetcher, "https://catalog.test/create-order"), /Estoque insuficiente/);
+});
+
+test("production catalog origin is allowed by the order function", () => {
+  const handler = readFileSync(new URL("../../supabase-catalog/functions/create-order/index.ts", import.meta.url), "utf8");
+  assert.match(handler, /https:\/\/exclusiv-catalogo\.vercel\.app/);
 });
