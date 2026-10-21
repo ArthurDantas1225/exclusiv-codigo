@@ -19,9 +19,9 @@ export async function runCatalogSyncBatches(
 
 export async function requestCatalogSync(productIds?: string[]) {
   if (!supabase) throw new Error("Aplicativo não conectado.");
-  const { data: session } = await supabase.auth.getSession();
+  const { data: session, error } = await supabase.auth.refreshSession();
   const token = session.session?.access_token;
-  if (!token) throw new Error("Sessão necessária.");
+  if (error || !token) throw new Error("Sessão necessária. Entre novamente no aplicativo.");
   await runCatalogSyncBatches(productIds, async (batch) => {
     const response = await fetch("https://sduacssupdhzwqmlijqv.supabase.co/functions/v1/sync-catalog", {
       method: "POST",

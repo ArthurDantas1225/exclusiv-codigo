@@ -28,6 +28,7 @@ test("catalog synchronization runs beside the catalog data and validates the ERP
   const client = readFileSync(new URL("../lib/catalog-sync.ts", import.meta.url), "utf8");
   const handler = readFileSync(new URL("../supabase-catalog/functions/sync-catalog/index.ts", import.meta.url), "utf8");
   assert.match(client, /sduacssupdhzwqmlijqv\.supabase\.co\/functions\/v1\/sync-catalog/);
+  assert.match(client, /auth\.refreshSession\(\)/);
   assert.match(handler, /auth\.getUser\(token\)/);
   assert.match(handler, /cacheControl:\s*["']31536000["']/);
   assert.doesNotMatch(handler, /CATALOG_SUPABASE_SERVICE_ROLE_KEY/);
