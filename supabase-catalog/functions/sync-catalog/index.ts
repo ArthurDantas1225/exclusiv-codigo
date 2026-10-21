@@ -71,7 +71,7 @@ Deno.serve(async (request: Request) => {
         if (downloadError || !file) throw new Error("Falha ao copiar uma foto.");
         const extension = image.path.split(".").pop()?.toLowerCase() || "webp";
         const path = `${product.id}/${image.id}.${extension}`;
-        const { error: uploadError } = await catalog.storage.from("catalog-products").upload(path, file, { upsert: true, contentType: file.type || `image/${extension}` });
+        const { error: uploadError } = await catalog.storage.from("catalog-products").upload(path, file, { upsert: true, contentType: file.type || `image/${extension}`, cacheControl: "31536000" });
         if (uploadError) throw new Error("Falha ao armazenar uma foto.");
         const { data: publicUrl } = catalog.storage.from("catalog-products").getPublicUrl(path);
         publicImages.push({ ...image, path, url: publicUrl.publicUrl });
