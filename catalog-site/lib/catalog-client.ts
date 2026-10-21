@@ -46,5 +46,16 @@ export async function loadCatalog(fetcher: typeof fetch = fetch): Promise<Catalo
     get<Rows["variants"]>("catalog_variants?stock=gt.0&select=source_id,product_id,size,color,model,stock"),
     get<Rows["images"]>("catalog_images?select=source_id,product_id,url,color,view,is_primary,position&order=position.asc"),
   ]);
-  return buildCatalogData({ settings: settings[0] ?? null, products, variants, images });
+  const catalog = buildCatalogData({ settings: settings[0] ?? null, products, variants, images });
+  if (catalog.products.some((product) => product.images.length)) return catalog;
+  try {
+    const response = await fetcher("https://rznnojrtgolekdkcvxnv.supabase.co/functions/v1/catalog", {
+      next: { revalidate: 300 }, signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) return catalog;
+    const fallback = await response.json() as CatalogData;
+    return Array.isArray(fallback.products) ? { ...fallback, settings: catalog.settings ?? fallback.settings } : catalog;
+  } catch {
+    return catalog;
+  }
 }

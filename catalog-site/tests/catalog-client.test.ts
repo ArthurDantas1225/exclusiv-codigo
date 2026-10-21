@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildCatalogData } from "../lib/catalog-client.ts";
+import { buildCatalogData, loadCatalog, type CatalogData } from "../lib/catalog-client.ts";
 
 test("catalog data contains only published products and available variants", () => {
   const catalog = buildCatalogData({
@@ -34,4 +34,32 @@ test("catalog keeps a published product without a photo or stock", () => {
 
   assert.equal(catalog.products[0].image, null);
   assert.deepEqual(catalog.products[0].variants, []);
+});
+
+test("catalog falls back to the ERP snapshot when the separate database has no photos", async () => {
+  const previousUrl = process.env.NEXT_PUBLIC_CATALOG_SUPABASE_URL;
+  const previousKey = process.env.NEXT_PUBLIC_CATALOG_SUPABASE_PUBLISHABLE_KEY;
+  process.env.NEXT_PUBLIC_CATALOG_SUPABASE_URL = "https://catalog.test";
+  process.env.NEXT_PUBLIC_CATALOG_SUPABASE_PUBLISHABLE_KEY = "public-key";
+  const fallback: CatalogData = {
+    shop: "EXCLUSIV",
+    products: [{ id: "p1", name: "Camisa", category: "Camisa", subcategory: "Básica", collection: "", price: 7000, image: "https://erp.test/photo.webp", images: [{ id: "i1", url: "https://erp.test/photo.webp", color: "Preta", view: "front", is_primary: true }], variants: [] }],
+  };
+  const fetcher = async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes("functions/v1/catalog")) return Response.json(fallback);
+    if (url.includes("catalog_settings")) return Response.json([]);
+    if (url.includes("catalog_products")) return Response.json([{ source_id: "p1", name: "Camisa", category: "Camisa", subcategory: "Básica", collection: "", price: 7000, published: true }]);
+    return Response.json([]);
+  };
+
+  try {
+    const catalog = await loadCatalog(fetcher as typeof fetch);
+    assert.equal(catalog.products[0].image, "https://erp.test/photo.webp");
+  } finally {
+    if (previousUrl === undefined) delete process.env.NEXT_PUBLIC_CATALOG_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_CATALOG_SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.NEXT_PUBLIC_CATALOG_SUPABASE_PUBLISHABLE_KEY;
+    else process.env.NEXT_PUBLIC_CATALOG_SUPABASE_PUBLISHABLE_KEY = previousKey;
+  }
 });
