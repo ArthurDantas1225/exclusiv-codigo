@@ -716,7 +716,7 @@ textarea {
   margin-bottom: 12px;
   text-transform: uppercase;
 }
-.wordmark {
+.receipt .wordmark {
   display: block;
   margin: 4px 0 8px;
   font: 900 26px/1 Arial, sans-serif;
