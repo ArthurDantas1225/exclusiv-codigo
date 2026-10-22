@@ -141,7 +141,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
     });
   }
   return <main className="catalog-page">
-    <header className="catalog-header"><div className="wordmark">EXCLUSIV<span>®</span></div><span>CATÁLOGO ONLINE</span><a className="catalog-header-cart" href="#pedido" aria-label={`Ver meu pedido, ${count} peças`}><ShoppingBag size={17} /> Pedido · {count}</a></header>
+    <header className="catalog-header"><div className="wordmark orange">EXCLUSIV<span>®</span></div><span>CATÁLOGO ONLINE</span><a className="catalog-header-cart" href="#pedido" aria-label={`Ver meu pedido, ${count} peças`}><ShoppingBag size={17} /> Pedido · {count}</a></header>
     <section className="catalog-intro">
       <h1>Escolha suas peças exclusivas</h1>
       <p>Explore as peças, escolha sua cor e tamanho e envie seu pedido para a EXCLUSIV.</p>

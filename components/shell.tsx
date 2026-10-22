@@ -81,7 +81,7 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link href="/app" className="wordmark">
+        <Link href="/app" className="wordmark orange">
           EXCLUSIV<span>®</span>
         </Link>
         <div className="side-caption">GESTÃO DA LOJA</div>
@@ -110,7 +110,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
       <div className="workspace">
         <header className="topbar">
-          <Link href="/app" className="mobile-brand wordmark">
+          <Link href="/app" className="mobile-brand wordmark orange">
             EXCLUSIV<span>®</span>
           </Link>
           <span className="desktop-breadcrumb">
