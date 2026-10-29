@@ -10,3 +10,4 @@ node_modules/
 supabase/.temp/
 
 .worktrees/
+.superpowers/
