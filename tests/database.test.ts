@@ -7,6 +7,7 @@ const db = new PGlite();
 const org = randomUUID(),
   otherOrg = randomUUID(),
   user = randomUUID(),
+  salaryUser = randomUUID(),
   otherUser = randomUUID();
 let product: string, variant: string, customer: string, sale: string;
 async function command(action: string, p: Record<string, unknown> = {}) {
@@ -31,14 +32,15 @@ before(async () => {
   await db.exec(readFileSync("supabase/migrations/20260919190000_product_grid_media_undo.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20260919193842_product_subcategory.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20260922120000_purchase_supplies_notes.sql", "utf8"));
-  await db.query("insert into auth.users values ($1),($2)", [user, otherUser]);
+  await db.exec(readFileSync("supabase/migrations/20261029150000_salary_metrics.sql", "utf8"));
+  await db.query("insert into auth.users values ($1),($2),($3)", [user, salaryUser, otherUser]);
   await db.query(
     "insert into public.organizations(id,name) values($1,'EXCLUSIV'),($2,'Other')",
     [org, otherOrg],
   );
   await db.query(
-    "insert into public.profiles(id,organization_id,name,email) values($1,$2,'Admin','a@example.test'),($3,$4,'Other','b@example.test')",
-    [user, org, otherUser, otherOrg],
+    "insert into public.profiles(id,organization_id,name,email) values($1,$2,'Admin','a@example.test'),($3,$2,'Vendedora','seller@example.test'),($4,$5,'Other','b@example.test')",
+    [user, org, salaryUser, otherUser, otherOrg],
   );
   await db.query("select set_config('request.jwt.claim.sub',$1,false)", [user]);
   await db.exec("set role authenticated");
@@ -324,6 +326,94 @@ test("metrics and immutable audit", async () => {
   assert.equal(m.rows[0].result.count, 1);
   assert.ok((await db.query("select * from audit_logs")).rows.length >= 10);
   await assert.rejects(db.exec("delete from audit_logs"), /permission denied/);
+});
+test("salary metrics use real profit and stay isolated by seller and organization", async () => {
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [salaryUser]);
+  await command("open_cash", { amount: 0 });
+  const salaryProduct = await command("product", { name: "Short duplo", price: 4000 });
+  const salaryVariant = await command("variant", {
+    product_id: salaryProduct,
+    sku: "SAL-M",
+    color: "Preto",
+    size: "M",
+    stock: 20,
+    minimum: 1,
+    cost: 2200,
+  });
+  const discounted = await command("sale", {
+    discount: 400,
+    items: [{ variant_id: salaryVariant, quantity: 1, unit_price: 4000 }],
+    payments: [{ method: "Pix", amount: 3600 }],
+  });
+  const noProfit = await command("sale", {
+    discount: 0,
+    items: [{ variant_id: salaryVariant, quantity: 1, unit_price: 2000 }],
+    payments: [{ method: "Pix", amount: 2000 }],
+  });
+  const cancelled = await command("sale", {
+    discount: 0,
+    items: [{ variant_id: salaryVariant, quantity: 1, unit_price: 4000 }],
+    payments: [{ method: "Pix", amount: 4000 }],
+  });
+  await command("cancel", { sale_id: cancelled, reason: "Teste de salário" });
+  const returned = await command("sale", {
+    discount: 0,
+    items: [{ variant_id: salaryVariant, quantity: 2, unit_price: 4000 }],
+    payments: [{ method: "Pix", amount: 8000 }],
+  });
+  const returnedItem = (await scalar(`select id from sale_items where sale_id='${returned}'`)).id;
+  await command("return", {
+    sale_id: returned,
+    item_id: returnedItem,
+    quantity: 1,
+    method: "Pix",
+    reason: "Teste de salário",
+  });
+  await command("close_cash", { amount: 0 });
+  await db.exec("reset role");
+  await db.query(
+    "update sales set created_at='2029-01-05T12:00:00Z' where id=any($1::uuid[])",
+    [[discounted, noProfit, cancelled, returned]],
+  );
+  await db.query(
+    "update ledger set created_at='2029-01-10T12:00:00Z' where sale_id=$1 and description like 'Devolução:%'",
+    [returned],
+  );
+  await db.exec("set role authenticated");
+
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [otherUser]);
+  await command("open_cash", { amount: 0 });
+  const otherProduct = await command("product", { name: "Produto externo", price: 10000 });
+  const otherVariant = await command("variant", {
+    product_id: otherProduct,
+    sku: "OTHER-M",
+    color: "Azul",
+    size: "M",
+    stock: 2,
+    minimum: 0,
+    cost: 1000,
+  });
+  const otherSale = await command("sale", {
+    discount: 0,
+    items: [{ variant_id: otherVariant, quantity: 1, unit_price: 10000 }],
+    payments: [{ method: "Pix", amount: 10000 }],
+  });
+  await command("close_cash", { amount: 0 });
+  await db.exec("reset role");
+  await db.query("update sales set created_at='2029-01-05T12:00:00Z' where id=$1", [otherSale]);
+  await db.exec("set role authenticated");
+
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [salaryUser]);
+  const result = (await db.query<{ result: {
+    salary: number;
+    seller_salary: Array<{ user_id: string; name: string; sales: number; revenue: number; cost: number; gross_profit: number; salary: number }>;
+  } }>("select metrics('2029-01-01','2029-01-31') result")).rows[0].result;
+
+  assert.equal(Number(result.salary), 1600);
+  assert.deepEqual(result.seller_salary.map((row) => ({ ...row, sales: Number(row.sales), revenue: Number(row.revenue), cost: Number(row.cost), gross_profit: Number(row.gross_profit), salary: Number(row.salary) })), [
+    { user_id: salaryUser, name: "Vendedora", sales: 3, revenue: 9600, cost: 6600, gross_profit: 3000, salary: 1600 },
+  ]);
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [user]);
 });
 test("store credit can be spent without cash and rejects excess", async () => {
   await command("open_cash", { amount: 0 });
