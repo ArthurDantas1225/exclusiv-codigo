@@ -3,6 +3,16 @@ import { useEffect, useState } from "react";
 import { day } from "./format";
 import { supabase } from "./supabase";
 import { useStore } from "@/components/provider";
+import { currentSaleProfit } from "./profit";
+export interface SellerSalary {
+  user_id: string;
+  name: string;
+  sales: number;
+  revenue: number;
+  cost: number;
+  gross_profit: number;
+  salary: number;
+}
 export interface Metrics {
   revenue: number;
   gross: number;
@@ -18,6 +28,8 @@ export interface Metrics {
   daily: { day: string; revenue: number; sales: number }[];
   monthly: { month: number; revenue: number; sales: number; cost: number }[];
   payments: { method: string; amount: number }[];
+  salary: number;
+  seller_salary: SellerSalary[];
 }
 export function useMetrics(start: string, end: string) {
   const { demo, data } = useStore();
@@ -31,6 +43,29 @@ export function useMetrics(start: string, end: string) {
           day(new Date(s.created_at)) >= start &&
           day(new Date(s.created_at)) <= end,
       );
+      const sellerSalary = new Map<string, SellerSalary>();
+      for (const sale of sales.filter((item) => item.status !== "cancelled")) {
+        const profit = currentSaleProfit(sale, data.ledger);
+        const userId = sale.created_by ?? "demo";
+        const seller = sellerSalary.get(userId) ?? {
+          user_id: userId,
+          name:
+            data.profiles.find((profile) => profile.id === userId)?.name ??
+            "Equipe EXCLUSIV",
+          sales: 0,
+          revenue: 0,
+          cost: 0,
+          gross_profit: 0,
+          salary: 0,
+        };
+        seller.sales += 1;
+        seller.revenue += profit.revenue;
+        seller.cost += profit.cost;
+        seller.gross_profit += profit.profit;
+        seller.salary += profit.salary;
+        sellerSalary.set(userId, seller);
+      }
+      const salaries = [...sellerSalary.values()];
       setResult({
         revenue: sales.reduce((a, s) => a + s.total, 0),
         gross: sales.reduce((a, s) => a + s.gross, 0),
@@ -57,6 +92,8 @@ export function useMetrics(start: string, end: string) {
           { method: "Dinheiro", amount: 24990 },
           { method: "Fiado", amount: 10000 },
         ],
+        salary: salaries.reduce((sum, seller) => sum + seller.salary, 0),
+        seller_salary: salaries,
       });
       return;
     }

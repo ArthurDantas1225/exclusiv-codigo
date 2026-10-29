@@ -12,6 +12,7 @@ import { methods, type ProductImage } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { coverPhoto, variantPhoto } from "@/lib/pos-photo";
 import { availableVariants, saleSchema } from "@/lib/domain";
+import { averageVariantCost, salaryFromRevenue } from "@/lib/profit";
 type Line = { variant_id: string; quantity: number; unit_price: number };
 export function POS() {
   const { data, run, busy, notify, online, demo } = useStore(),
@@ -69,6 +70,11 @@ export function POS() {
         ? Math.round((gross * Number(discount)) / 100)
         : cents(discount),
     total = gross - disc,
+    cartCost = cart.reduce((sum, line) => {
+      const variant = data.product_variants.find((item) => item.id === line.variant_id);
+      return sum + line.quantity * (variant?.cost ?? 0);
+    }, 0),
+    estimatedSalary = salaryFromRevenue(total, cartCost),
     paid = payments.reduce((a, p) => a + p.amount, 0),
     visibleProducts = data.products.filter((p) => p.active &&
       (!selectedProduct || p.id === selectedProduct) &&
@@ -149,9 +155,8 @@ export function POS() {
                 const variants = data.product_variants.filter((v) => v.product_id === p.id);
                 const available = availableVariants(variants);
                 const units = variants.reduce((sum, variant) => sum + variant.stock, 0);
-                const averageCost = variants.length
-                  ? Math.round(variants.reduce((sum, variant) => sum + variant.cost * (units ? variant.stock : 1), 0) / (units || variants.length))
-                  : 0;
+                const averageCost = averageVariantCost(variants);
+                const estimatedProductSalary = salaryFromRevenue(p.price, averageCost);
                 const cover = coverPhoto(photosByProduct.get(p.id) ?? []);
                 const coverUrl = cover && photoUrls[cover.id];
                 const colors = new Set(available.map((variant) => variant.color.trim()).filter(Boolean)).size;
@@ -171,7 +176,7 @@ export function POS() {
                     <div><small>Preço de venda</small><strong>{money(p.price)}</strong></div>
                     <div><small>Custo médio</small><strong>{money(averageCost)}</strong></div>
                   </div>
-                  <p className="pos-product-margin">Margem bruta média: <strong>{money(p.price - averageCost)}{p.price > 0 ? ` · ${Math.round((p.price - averageCost) / p.price * 100)}%` : ""}</strong></p>
+                  <p className="pos-product-margin">Margem bruta média: <strong>{money(p.price - averageCost)}{p.price > 0 ? ` · ${Math.round((p.price - averageCost) / p.price * 100)}%` : ""}</strong><br />Salário estimado (50%): <strong>{money(estimatedProductSalary)}</strong></p>
                   <div className="sizes pos-sizes">
                     {!variants.length &&
                       <Link className="button ghost" href={`/app/produtos/${p.id}`}>
@@ -369,6 +374,10 @@ export function POS() {
               <div className="total-row total">
                 <span>Total</span>
                 <span>{money(total)}</span>
+              </div>
+              <div className="total-row">
+                <span>Salário estimado (50% do lucro real)</span>
+                <strong>{money(estimatedSalary)}</strong>
               </div>
               <h3 className="section-gap">Pagamento</h3>
               {payments.map((p, i) => (

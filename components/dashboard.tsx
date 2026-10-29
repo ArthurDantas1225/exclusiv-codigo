@@ -80,9 +80,13 @@ export function Dashboard() {
           }
         />
         <Stat
-          label="Lucro bruto estimado"
+          label="Lucro bruto real"
           value={m ? money(m.revenue - m.cost - m.refunds) : "…"}
-          detail="Antes das despesas operacionais"
+          detail={
+            m
+              ? `Salários do dia: ${money(m.salary ?? 0)}`
+              : "Antes das despesas operacionais"
+          }
         />
         <Stat
           label="Caixa em dinheiro"

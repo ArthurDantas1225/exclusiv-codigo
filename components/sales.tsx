@@ -6,6 +6,7 @@ import { useStore } from "./provider";
 import { Card, Empty, Sheet, Field, Form } from "./ui";
 import { money, dateTime, day, downloadCSV, dataUrlToFile } from "@/lib/format";
 import { WhatsAppSheet } from "./customers";
+import { currentSaleProfit } from "@/lib/profit";
 const statuses: Record<string, string> = {
   completed: "Concluída",
   cancelled: "Cancelada",
@@ -27,6 +28,7 @@ export function Sales({ id }: { id?: string }) {
     data.profiles.find((p) => p.id === actor)?.name ?? "Equipe EXCLUSIV";
   const companyName = data.app_settings.find((s) => s.key === "company_name")?.value || "EXCLUSIV";
   const payments = data.sale_payments.filter((p) => p.sale_id === id);
+  const realProfit = sale ? currentSaleProfit(sale, data.ledger) : null;
   const list = data.sales.filter(
     (s) =>
       (!start || day(new Date(s.created_at)) >= start) &&
@@ -154,12 +156,16 @@ export function Sales({ id }: { id?: string }) {
               </div>
               <div className="row"><span>Venda registrada por</span><strong>{actorName(sale.created_by)}</strong></div>
               <div className="row">
-                <span>Custo histórico</span>
-                <span>{money(sale.cost)}</span>
+                <span>Custo histórico atual</span>
+                <span>{money(realProfit?.cost ?? 0)}</span>
               </div>
               <div className="row">
-                <span>Lucro bruto original</span>
-                <span>{money(sale.total - sale.cost)}</span>
+                <span>Lucro bruto real</span>
+                <span>{money(realProfit?.profit ?? 0)}</span>
+              </div>
+              <div className="row">
+                <span>Salário gerado (50%)</span>
+                <strong>{money(realProfit?.salary ?? 0)}</strong>
               </div>
               <div className="row">
                 <span>Dinheiro entregue / troco</span>

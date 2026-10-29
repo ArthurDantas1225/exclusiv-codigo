@@ -76,6 +76,7 @@ export type Entry = {
   sale_id: string | null;
   kind: string;
   amount: number;
+  cost_delta?: number;
   description: string;
   method: string;
   due_date: string;

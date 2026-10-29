@@ -99,7 +99,17 @@ export function Reports() {
         />
         <Stat
           label="Resultado estimado"
-          value={m ? money(m.revenue - m.refunds - m.cost - m.expenses) : "…"}
+          value={
+            m
+              ? money(
+                  m.revenue -
+                    m.refunds -
+                    m.cost -
+                    m.expenses -
+                    (m.salary ?? 0),
+                )
+              : "…"
+          }
         />
       </div>
       <div className="dashboard-grid">
@@ -139,12 +149,21 @@ export function Reports() {
               "Lucro bruto",
               (m?.revenue ?? 0) - (m?.refunds ?? 0) - (m?.cost ?? 0),
             ],
+            ["Salários (50% do lucro real)", -(m?.salary ?? 0)],
+            [
+              "Lucro após salários",
+              (m?.revenue ?? 0) -
+                (m?.refunds ?? 0) -
+                (m?.cost ?? 0) -
+                (m?.salary ?? 0),
+            ],
             ["Despesas operacionais", -(m?.expenses ?? 0)],
             [
               "Resultado operacional",
               (m?.revenue ?? 0) -
                 (m?.refunds ?? 0) -
                 (m?.cost ?? 0) -
+                (m?.salary ?? 0) -
                 (m?.expenses ?? 0),
             ],
           ].map(([label, value]) => (
@@ -158,6 +177,50 @@ export function Reports() {
           </p>
         </Card>
       </div>
+      <Card>
+        <div className="card-head">
+          <div>
+            <h2>Salário por vendedor</h2>
+            <p className="fine">
+              50% do lucro bruto real, já considerando descontos e devoluções.
+            </p>
+          </div>
+          <button
+            disabled={!m?.seller_salary.length}
+            onClick={() =>
+              m &&
+              downloadCSV(
+                "salarios-por-vendedor",
+                m.seller_salary.map((seller) => ({
+                  vendedor: seller.name,
+                  vendas: seller.sales,
+                  receita_liquida: seller.revenue / 100,
+                  custo: seller.cost / 100,
+                  lucro_bruto_real: seller.gross_profit / 100,
+                  salario: seller.salary / 100,
+                })),
+              )
+            }
+          >
+            Exportar salários CSV
+          </button>
+        </div>
+        {m?.seller_salary.map((seller) => (
+          <div className="row" key={seller.user_id}>
+            <div>
+              <strong>{seller.name}</strong>
+              <small>
+                {seller.sales} venda{seller.sales === 1 ? "" : "s"} · lucro
+                real {money(seller.gross_profit)}
+              </small>
+            </div>
+            <strong>{money(seller.salary)}</strong>
+          </div>
+        ))}
+        {m && !m.seller_salary.length && (
+          <p className="fine">Nenhum salário gerado neste período.</p>
+        )}
+      </Card>
       <Card>
         <h2>Formas de pagamento</h2>
         {m?.payments.map((p) => (
