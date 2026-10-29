@@ -145,4 +145,3 @@ Expected: todos com exit code 0.
 - [ ] **Step 3: Apply the Supabase migration** ao projeto vinculado e confirmar que `metrics` retorna `salary` e `seller_salary`.
 - [ ] **Step 4: Push `main`** para o repositório conectado à Vercel.
 - [ ] **Step 5: Verify production** no estoque, PDV, detalhe de venda e relatórios, sem expor salário no recibo.
-

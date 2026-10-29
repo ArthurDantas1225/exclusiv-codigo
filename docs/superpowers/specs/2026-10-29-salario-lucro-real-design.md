@@ -1,6 +1,6 @@
 # Salário de 50% do lucro bruto real
 
-**Data:** 2026-10-29  
+**Data:** 2026-10-29
 **Status:** aguardando aprovação do desenho
 
 ## Objetivo
@@ -93,4 +93,3 @@ Serão cobertos por testes:
 - encargos trabalhistas, comissão adicional, pró-labore ou folha contábil;
 - percentuais diferentes de 50%;
 - edição manual do salário calculado.
-
