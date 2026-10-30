@@ -180,7 +180,9 @@ export function buildStylistCandidates(
 ): StylistCandidate[] {
   const tops = pieces(input.products, input.variants, input.images, "shirt");
   const bottoms = pieces(input.products, input.variants, input.images, pairing === "shirt_short" ? "short" : "pants");
-  return tops.flatMap((top) => bottoms.map((bottom): StylistCandidate => ({
+  return tops.flatMap((top) => bottoms
+    .filter((bottom) => (categoryForProduct(top.category, top.name) === "Fitness") === (categoryForProduct(bottom.category, bottom.name) === "Fitness"))
+    .map((bottom): StylistCandidate => ({
     id: `${top.productId}:${colorKey(top.color)}|${bottom.productId}:${colorKey(bottom.color)}`,
     pairing,
     top,

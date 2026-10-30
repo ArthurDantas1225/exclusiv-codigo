@@ -76,6 +76,25 @@ test("shirt_pants never uses a short as the bottom", () => {
   assert.equal(candidates[0].pairing, "shirt_pants");
 });
 
+test("fitness pieces only combine with other fitness pieces", () => {
+  const products = [
+    product("casual-shirt", "Camisa"),
+    product("casual-short", "Short"),
+    product("fitness-shirt", "Fitness", { subcategory: "Camisas" }),
+    product("fitness-short", "Fitness", { subcategory: "Shorts" }),
+  ];
+  const variants = products.map((entry) => variant(`v-${entry.id}`, entry.id));
+  const images = products.map((entry) => image(`i-${entry.id}`, entry.id));
+
+  const candidates = buildStylistCandidates({ products, variants, images }, "shirt_short", "sell_today");
+
+  assert.equal(candidates.length, 2);
+  assert.deepEqual(new Set(candidates.map((entry) => `${entry.top.productId}|${entry.bottom.productId}`)), new Set([
+    "casual-shirt|casual-short",
+    "fitness-shirt|fitness-short",
+  ]));
+});
+
 test("ineligible products are excluded and candidates expose sellable metadata", () => {
   const products = [
     product("shirt", "Camisa", { price: 7000 }),
