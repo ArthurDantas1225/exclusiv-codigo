@@ -33,6 +33,7 @@ Copie `.env.example` para `.env.local` e preencha:
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=SUA_CHAVE_PUBLICA_ANON
+AI_GATEWAY_MODEL=google/gemini-2.5-flash-lite
 ```
 
 A chave anon/publishable é pública e depende das políticas RLS para segurança. Nunca use a service_role nesse arquivo ou no frontend. O arquivo local `.env.local`, ignorado pelo Git, já aponta para o projeto Supabase Exclusiv; as variáveis também estão no ambiente Production da Vercel.
@@ -98,6 +99,8 @@ Contas não vinculadas a um perfil ativo não têm acesso aos dados. Desativar `
 5. Publique e cadastre a URL HTTPS em Supabase Auth. Variáveis `NEXT_PUBLIC_*` entram no build; alterá-las requer novo deploy.
 6. Publique a Edge Function `supabase/functions/catalog/index.ts` como `catalog` com `verify_jwt=false`, pois ela é um GET público somente de produtos publicados. Mantenha `manage-team` protegida com `verify_jwt=true`.
 7. Execute o roteiro de homologação, inclusive login com os dois sócios, leitura após recarregar e operações simultâneas em duas sessões.
+
+O módulo **Mais → Stylist IA** usa o Vercel AI Gateway com saída estruturada. Em deploys Vercel, a autenticação é feita pelo token OIDC do projeto; não crie nem exponha uma chave no frontend. Defina `AI_GATEWAY_MODEL` no servidor e configure um orçamento mensal no escopo do projeto. A chamada tem limite de saída e timeout; se autenticação, créditos, orçamento, modelo ou rede falharem, o aplicativo entrega um roteiro local sem enviar custos, clientes, vendas, usuários ou arquivos de imagem ao modelo.
 
 O catálogo usa um segundo projeto Vercel com Root Directory `catalog-site` e um segundo projeto Supabase. Consulte `catalog-site/README.md` para as variáveis públicas e `docs/CATALOGO-OPERACAO.md` para sincronização, pedidos e retorno seguro.
 

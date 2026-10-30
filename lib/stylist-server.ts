@@ -63,6 +63,8 @@ const defaultGenerator: StylistGenerator = async (prompt, schema) => {
     model,
     output: Output.object({ schema }),
     prompt,
+    maxOutputTokens: 1_200,
+    reasoning: "minimal",
     abortSignal: AbortSignal.timeout(12_000),
   });
   return output;
