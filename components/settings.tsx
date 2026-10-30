@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BadgeAlert, BarChart3, ClipboardCheck, Contact, CreditCard, FileUp, HandCoins, Package, ReceiptText, Settings2, ShoppingCart, Truck } from "lucide-react";
+import { ArrowUpRight, BadgeAlert, BarChart3, ClipboardCheck, Contact, CreditCard, FileUp, HandCoins, Package, ReceiptText, Settings2, ShoppingCart, Sparkles, Truck } from "lucide-react";
 import { Card, Field, Form } from "./ui";
 import { useStore } from "./provider";
 import { supabase } from "@/lib/supabase";
@@ -195,6 +195,7 @@ export function Settings() {
 }
 export function More() {
   const modules = [
+    ["stylist", "Stylist IA", "Kits e roteiros para Stories", Sparkles],
     ["vendas", "Vendas", "Histórico, recibos e devoluções", ReceiptText],
     ["compras", "Compras", "Entradas de mercadoria e custos", ShoppingCart],
     ["fornecedores", "Fornecedores", "Contatos para reposição", Truck],

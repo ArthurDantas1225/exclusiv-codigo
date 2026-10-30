@@ -14,6 +14,7 @@ import { Settings, More, Alerts } from "@/components/settings";
 import { Suppliers, Purchases, Payables } from "@/components/purchasing";
 import { ImportCSV } from "@/components/import-csv";
 import { Empty } from "@/components/ui";
+import { Stylist } from "@/components/stylist";
 export default function Page() {
   const params = useParams<{ path?: string[] }>();
   const [page, id] = params.path ?? [];
@@ -50,6 +51,8 @@ export default function Page() {
       return <Settings />;
     case "mais":
       return <More />;
+    case "stylist":
+      return <Stylist />;
     case "alertas":
       return <Alerts />;
     default:
