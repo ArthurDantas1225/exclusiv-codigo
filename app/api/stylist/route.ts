@@ -6,6 +6,25 @@ export const runtime = "nodejs";
 
 type AuthenticationStatus = "active" | "inactive" | "invalid";
 type GenerateResult = (input: StylistRequest) => Promise<{ result: StylistResult; source: "ai" | "fallback" }>;
+const maxBodyBytes = 64_000;
+
+async function readLimitedBody(request: Request): Promise<string | null> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let text = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) return text + decoder.decode();
+    size += value.byteLength;
+    if (size > maxBodyBytes) {
+      await reader.cancel();
+      return null;
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+}
 
 async function authenticateStylistUser(token: string): Promise<AuthenticationStatus> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -42,10 +61,12 @@ export function createStylistPost(dependencies: {
     if (status === "inactive") return Response.json({ error: "Perfil inativo." }, { status: 403 });
 
     const declaredSize = Number(request.headers.get("content-length") ?? 0);
-    if (declaredSize > 64_000) return Response.json({ error: "Corpo muito grande." }, { status: 413 });
+    if (declaredSize > maxBodyBytes) return Response.json({ error: "Corpo muito grande." }, { status: 413 });
     let body: unknown;
     try {
-      body = await request.json();
+      const rawBody = await readLimitedBody(request);
+      if (rawBody === null) return Response.json({ error: "Corpo muito grande." }, { status: 413 });
+      body = JSON.parse(rawBody);
     } catch {
       return Response.json({ error: "JSON inválido." }, { status: 400 });
     }

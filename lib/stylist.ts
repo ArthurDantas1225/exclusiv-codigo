@@ -190,6 +190,15 @@ export function buildStylistCandidates(
   }))).sort((a, b) => b.score - a.score || a.top.name.localeCompare(b.top.name, "pt-BR") || a.id.localeCompare(b.id)).slice(0, 12);
 }
 
+export function findStylistReplacement(candidates: StylistCandidate[], currentId: string) {
+  const current = candidates.find((candidate) => candidate.id === currentId);
+  if (!current) return undefined;
+  const samePiece = (left: StylistPiece, right: StylistPiece) =>
+    left.productId === right.productId && colorKey(left.color) === colorKey(right.color);
+  return candidates.find((candidate) => candidate.id !== currentId
+    && Number(samePiece(candidate.top, current.top)) + Number(samePiece(candidate.bottom, current.bottom)) === 1);
+}
+
 export function validateStylistResult(
   value: unknown,
   candidates: StylistCandidate[],

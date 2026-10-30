@@ -4,6 +4,7 @@ import type { Product, ProductImage, Variant } from "../lib/types.ts";
 import {
   buildStylistCandidates,
   fallbackStylistResult,
+  findStylistReplacement,
   resolveStylistPhoto,
   validateStylistResult,
 } from "../lib/stylist.ts";
@@ -240,4 +241,20 @@ test("fallback returns one complete kit with exactly three Story frames", () => 
   assert.ok(result.kits[0].cta);
   assert.equal(result.kits[0].story.length, 3);
   assert.deepEqual(validateStylistResult(result, [candidate]), result);
+});
+
+test("replacement changes exactly one piece of the selected kit", () => {
+  const products = [product("shirt-a", "Camisa"), product("shirt-b", "Camisa"), product("short-a", "Short"), product("short-b", "Short")];
+  const variants = products.map((entry) => variant(`v-${entry.id}`, entry.id));
+  const images = products.map((entry) => image(`i-${entry.id}`, entry.id));
+  const candidates = buildStylistCandidates({ products, variants, images }, "shirt_short", "sell_today");
+  const current = candidates.find((entry) => entry.top.productId === "shirt-a" && entry.bottom.productId === "short-a")!;
+
+  const replacement = findStylistReplacement(candidates, current.id);
+
+  assert.ok(replacement);
+  const sameTop = replacement.top.productId === current.top.productId && replacement.top.color === current.top.color;
+  const sameBottom = replacement.bottom.productId === current.bottom.productId && replacement.bottom.color === current.bottom.color;
+  assert.equal(Number(sameTop) + Number(sameBottom), 1);
+  assert.equal(findStylistReplacement([current], current.id), undefined);
 });

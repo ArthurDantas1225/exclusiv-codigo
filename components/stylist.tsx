@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import {
   buildStylistCandidates,
   fallbackStylistResult,
+  findStylistReplacement,
   validateStylistResult,
   type StylistCandidate,
   type StylistGoal,
@@ -106,9 +107,8 @@ export function Stylist() {
 
   function changePiece() {
     const currentId = result?.kits[selectedKit]?.candidateId;
-    const currentIndex = Math.max(0, candidates.findIndex((candidate) => candidate.id === currentId));
-    const replacement = candidates[(currentIndex + 1) % candidates.length];
-    if (!replacement || replacement.id === currentId) {
+    const replacement = currentId ? findStylistReplacement(candidates, currentId) : undefined;
+    if (!replacement) {
       setStatus("Não há outra combinação disponível para estas escolhas.");
       return;
     }

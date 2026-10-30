@@ -102,5 +102,8 @@ test("HTTP boundary rejects invalid and oversized candidate bodies", async () =>
 
   const oversized = await post(new Request("http://local/api/stylist", { method: "POST", headers, body: JSON.stringify({ ...input, candidates: Array(13).fill(input.candidates[0]) }) }));
   assert.equal(oversized.status, 400);
+
+  const excessiveText = await post(new Request("http://local/api/stylist", { method: "POST", headers, body: JSON.stringify({ ...input, padding: "x".repeat(70_000) }) }));
+  assert.equal(excessiveText.status, 413);
   assert.equal(generated, 0);
 });
