@@ -32,7 +32,7 @@ export function Dashboard() {
     .filter((v) => v.stock <= v.minimum)
     .sort((a, b) => a.stock - b.stock);
   return (
-    <>
+    <div className="dashboard-page">
       <div className="page-heading">
         <div>
           <div className="eyebrow">
@@ -63,7 +63,7 @@ export function Dashboard() {
           Não foi possível calcular os indicadores: {error}
         </div>
       )}
-      <div className="stats">
+      <div className="stats dashboard-stats">
         <Stat
           accent
           label="Faturamento hoje"
@@ -115,7 +115,7 @@ export function Dashboard() {
         </Link>
       </div>
       <div className="dashboard-grid">
-        <Card>
+        <Card className="dashboard-panel dashboard-revenue-panel">
           <div className="card-head">
             <div>
               <div className="eyebrow">ESTE MÊS</div>
@@ -176,7 +176,7 @@ export function Dashboard() {
             )}
           </div>
         </Card>
-        <Card>
+        <Card className="dashboard-panel dashboard-attention-panel">
           <div className="card-head">
             <h2>Precisa de atenção</h2>
             <Link href="/app/alertas">Ver tudo <ArrowUpRight size={16} /></Link>
@@ -235,7 +235,7 @@ export function Dashboard() {
         </div>
       )}
       <div className="dashboard-grid">
-        <Card>
+        <Card className="dashboard-panel dashboard-sales-panel">
           <div className="card-head">
             <h2>Últimas vendas</h2>
             <Link href="/app/vendas">Histórico <ArrowUpRight size={16} /></Link>
@@ -261,7 +261,7 @@ export function Dashboard() {
             />
           )}
         </Card>
-        <Card>
+        <Card className="dashboard-panel dashboard-stock-panel">
           <div className="card-head">
             <h2>De olho no estoque</h2>
             <Link href="/app/estoque">Ver estoque <ArrowUpRight size={16} /></Link>
@@ -292,6 +292,6 @@ export function Dashboard() {
           )}
         </Card>
       </div>
-    </>
+    </div>
   );
 }
