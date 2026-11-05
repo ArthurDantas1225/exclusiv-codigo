@@ -6,9 +6,11 @@ export type OrderLine = {
   quantity: number;
 };
 
-export function whatsappOrderUrl(lines: OrderLine[], name: string, payment: string, delivery: string) {
+export function whatsappOrderUrl(lines: OrderLine[], name: string, payment: string, delivery: string, promo?: { discount: number; campaignNames: string[] }) {
   if (!lines.length || !name.trim()) throw new Error("Pedido e nome são obrigatórios.");
-  const total = lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
+  const subtotal = lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
+  const discount = Math.max(0, Math.min(subtotal, promo?.discount ?? 0));
+  const total = subtotal - discount;
   const message = [
     `Olá, EXCLUSIV! Meu nome é ${name.trim()} e quero confirmar este pedido:`,
     "",
@@ -23,6 +25,8 @@ export function whatsappOrderUrl(lines: OrderLine[], name: string, payment: stri
       "",
     ].join("\n")),
     "*RESUMO*",
+    `Subtotal: ${money(subtotal)}`,
+    ...(discount ? [`Promoção: ${promo?.campaignNames.join(", ") || "Desconto por quantidade"}`, `Desconto: − ${money(discount)}`] : []),
     `Total estimado: ${money(total)}`,
     `Pagamento desejado: ${payment.trim()}`,
     `Recebimento: ${delivery.trim()}`,

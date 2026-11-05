@@ -6,6 +6,7 @@ import { Card, Field, Form } from "./ui";
 import { useStore } from "./provider";
 import { supabase } from "@/lib/supabase";
 import { dateTime } from "@/lib/format";
+import { PromotionSettings } from "./promotion-settings";
 export function Settings() {
   const { data, run, busy, profile, load } = useStore();
   const [tab, setTab] = useState("Loja");
@@ -47,7 +48,7 @@ export function Settings() {
         </div>
       </div>
       <div className="chips">
-        {["Loja", "Tamanhos", "Usuários", "Atividade", "Instalar"].map((t) => (
+        {["Loja", "Tamanhos", "Promoções", "Usuários", "Atividade", "Instalar"].map((t) => (
           <button
             key={t}
             className={tab === t ? "selected" : ""}
@@ -122,6 +123,7 @@ export function Settings() {
           </Form>
         </Card>
       )}
+      {tab === "Promoções" && <PromotionSettings />}
       {tab === "Usuários" && (
         <Card>
           <h2>Equipe e acesso</h2>

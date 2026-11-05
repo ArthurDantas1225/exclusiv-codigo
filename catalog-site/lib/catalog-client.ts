@@ -1,7 +1,7 @@
 export type CatalogImage = { id: string; url: string; color: string; view: string; is_primary: boolean };
 export type CatalogVariant = { id: string; product_id: string; size: string; color: string; model: string; stock: number };
 export type CatalogProduct = { id: string; name: string; category: string; subcategory?: string; collection: string; price: number; image: string | null; images: CatalogImage[]; variants: CatalogVariant[] };
-export type CatalogData = { shop: string; products: CatalogProduct[]; settings?: { whatsapp: string; instagram: string; headline: string } };
+export type CatalogData = { shop: string; products: CatalogProduct[]; settings?: { whatsapp: string; instagram: string; headline: string }; promotionVersion?: number; promotions?: import("./promotions").Campaign[] };
 
 type Rows = {
   settings: { shop_name: string; whatsapp: string; instagram: string; headline: string } | null;
@@ -46,7 +46,11 @@ export async function loadCatalog(fetcher: typeof fetch = fetch): Promise<Catalo
     get<Rows["variants"]>("catalog_variants?stock=gt.0&select=source_id,product_id,size,color,model,stock"),
     get<Rows["images"]>("catalog_images?select=source_id,product_id,url,color,view,is_primary,position&order=position.asc"),
   ]);
+  const promoResponse = await fetcher("https://rznnojrtgolekdkcvxnv.supabase.co/functions/v1/catalog?view=promotions", { cache: "no-store", signal: AbortSignal.timeout(8000) }).catch(() => null);
+  const promotionData = promoResponse?.ok ? await promoResponse.json().catch(() => ({})) as { version?: number; campaigns?: import("./promotions").Campaign[] } : {};
   const catalog = buildCatalogData({ settings: settings[0] ?? null, products, variants, images });
+  catalog.promotionVersion = promotionData.version ?? 0;
+  catalog.promotions = promotionData.campaigns ?? [];
   if (catalog.products.some((product) => product.images.length)) return catalog;
   try {
     const response = await fetcher("https://rznnojrtgolekdkcvxnv.supabase.co/functions/v1/catalog", {

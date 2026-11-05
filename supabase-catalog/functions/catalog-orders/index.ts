@@ -35,9 +35,20 @@ Deno.serve(async (request: Request) => {
   catch { return reply(400, { error: "Solicitação inválida." }); }
   const catalog = createClient(catalogUrl, catalogKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
+  if (body.action === "get_for_sale") {
+    const orderId = String(body.order_id ?? "");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId)) return reply(400, { error: "Pedido inválido." });
+    const { data, error } = await catalog.from("catalog_orders")
+      .select("id,code,status,subtotal,promotion_discount,promotion_version,promotion_campaign_ids,total,catalog_order_items(product_id,product_name,variant_id,model,color,size,quantity,unit_price)")
+      .eq("id", orderId).maybeSingle();
+    if (error) return reply(502, { error: "Não foi possível confirmar o pedido." });
+    if (!data || !["pending", "failed"].includes(data.status)) return reply(409, { error: "Pedido não está aguardando confirmação." });
+    return reply(200, { order: data });
+  }
+
   if (body.action === "list") {
     const { data, error } = await catalog.from("catalog_orders")
-      .select("id,code,created_at,customer_name,payment,delivery,status,catalog_order_items(product_id,product_name,variant_id,model,color,size,quantity,unit_price)")
+      .select("id,code,created_at,customer_name,payment,delivery,subtotal,total,promotion_discount,promotion_campaign_ids,promotion_version,status,catalog_order_items(product_id,product_name,variant_id,model,color,size,quantity,unit_price)")
       .in("status", ["pending", "failed", "importing"]).order("created_at", { ascending: false }).limit(200);
     return error ? reply(502, { error: "Não foi possível carregar os pedidos." }) : reply(200, { orders: data ?? [] });
   }

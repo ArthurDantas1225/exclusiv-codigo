@@ -6,10 +6,11 @@ import { money } from "@/lib/format";
 import { galleryForColor, sortedColors, type CatalogImage } from "@/lib/catalog-selection";
 import { catalogCategories, categoryForProduct, categoryNames, searchable, type CatalogCategory } from "@/lib/catalog-taxonomy";
 import { submitCatalogOrder } from "@/lib/order-client";
+import { calculate } from "@/lib/promotions";
 
 type CatalogVariant = { id: string; product_id: string; size: string; color: string; model: string; stock: number };
 type CatalogProduct = { id: string; name: string; category: string; subcategory?: string; collection: string; price: number; image: string | null; images: CatalogImage[]; variants: CatalogVariant[] };
-export type CatalogData = { shop: string; products: CatalogProduct[] };
+export type CatalogData = { shop: string; products: CatalogProduct[]; promotionVersion?: number; promotions?: import("@/lib/promotions").Campaign[] };
 type CartLine = { variant: CatalogVariant; product: CatalogProduct; quantity: number };
 type Selection = { productId: string; model: string; color: string; size: string; quantity: number; imageIndex: number };
 const viewLabels: Record<string,string> = { front:"Frente", back:"Costas", detail:"Detalhe", other:"Foto" };
@@ -33,7 +34,9 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const orderKey = useRef<string | null>(null);
-  const total = cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
+  const subtotal = cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
+  const promotion = calculate(catalog.promotions ?? [], cart.map((line) => ({ productId: line.product.id, category: line.product.category, unitPrice: line.product.price, quantity: line.quantity })));
+  const total = subtotal - promotion.discount;
   const count = cart.reduce((sum, line) => sum + line.quantity, 0);
   const selectedProduct = catalog.products.find((product) => product.id === selection?.productId);
   const productVariants = selectedProduct?.variants.filter((variant) => variant.stock > 0) ?? [];
@@ -133,6 +136,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
       const receipt = await submitCatalogOrder({
         idempotencyKey: orderKey.current,
         customerName: name.trim(), payment, delivery,
+        promotionVersion: catalog.promotionVersion ?? 0,
         items: cart.map((line) => ({ variantId: line.variant.id, quantity: line.quantity })),
       });
       window.location.assign(receipt.whatsappUrl);
@@ -193,6 +197,8 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
           <div><strong>{line.product.name}</strong><small>{line.variant.model ? `${line.variant.model} · ` : ""}{line.variant.color} · {line.variant.size}</small><b>{money(line.product.price * line.quantity)}</b></div>
           <div className="catalog-qty"><button aria-label={`Diminuir ${line.product.name}`} onClick={() => changeCart(line.variant.id,-1)}><Minus size={16} /></button><span>{line.quantity}</span><button aria-label={`Aumentar ${line.product.name}`} disabled={line.quantity >= line.variant.stock} onClick={() => changeCart(line.variant.id,1)}><Plus size={16} /></button><button aria-label={`Remover ${line.product.name}`} onClick={() => removeFromCart(line)}><Trash2 size={16} /></button></div>
         </div>)}
+        <div className="total-row"><span>Subtotal</span><span>{money(subtotal)}</span></div>
+        {!!promotion.discount && <div className="total-row"><span>Promoção por quantidade</span><span>− {money(promotion.discount)}</span></div>}
         <div className="total-row total"><span>Total estimado</span><span>{money(total)}</span></div>
         <label htmlFor="buyer-name">Seu nome</label><input id="buyer-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="Como podemos chamar você?" />
         <label htmlFor="buyer-payment">Como prefere pagar?</label><select id="buyer-payment" value={payment} onChange={(e) => setPayment(e.target.value)}>{["Pix","Dinheiro","Cartão de débito","Cartão de crédito","A combinar"].map((item) => <option key={item}>{item}</option>)}</select>

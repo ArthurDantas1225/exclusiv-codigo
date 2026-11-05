@@ -20,6 +20,11 @@ export type PendingOrder = {
   payment: string;
   delivery: string;
   items: PendingOrderItem[];
+  subtotal?: number;
+  total?: number;
+  promotionDiscount?: number;
+  promotionCampaignIds?: string[];
+  promotionVersion?: number;
 };
 
 export type PendingOrderInput = Omit<PendingOrder, "id" | "createdAt">;
@@ -92,6 +97,11 @@ type RemoteOrderRow = {
   customer_name: string;
   payment: string;
   delivery: string;
+  subtotal?: number;
+  total?: number;
+  promotion_discount?: number;
+  promotion_campaign_ids?: string[];
+  promotion_version?: number;
   status: string;
   catalog_order_items: {
     product_id: string;
@@ -114,6 +124,11 @@ export function remoteOrderFromRow(row: RemoteOrderRow): PendingOrder {
     customerName: row.customer_name,
     payment: row.payment,
     delivery: row.delivery,
+    subtotal: row.subtotal,
+    total: row.total,
+    promotionDiscount: row.promotion_discount ?? 0,
+    promotionCampaignIds: row.promotion_campaign_ids ?? [],
+    promotionVersion: row.promotion_version ?? 0,
     items: row.catalog_order_items.map((item) => ({
       productId: item.product_id,
       productName: item.product_name,

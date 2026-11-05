@@ -64,6 +64,7 @@ export type SaleItem = {
   total: number;
   returned: number;
 };
+export type SalePromotionDetail = { id: string; sale_id: string; promotion_discount: number; manual_discount: number; promotion_version: number; campaign_ids: string[]; source: "app" | "catalog" };
 export type Payment = {
   id: string;
   sale_id: string;
@@ -146,6 +147,7 @@ export type Store = {
   customers: Customer[];
   sales: Sale[];
   sale_items: SaleItem[];
+  sale_promotion_details: SalePromotionDetail[];
   sale_payments: Payment[];
   ledger: Entry[];
   cash_sessions: CashSession[];
@@ -166,6 +168,7 @@ export const emptyStore: Store = {
   customers: [],
   sales: [],
   sale_items: [],
+  sale_promotion_details: [],
   sale_payments: [],
   ledger: [],
   cash_sessions: [],

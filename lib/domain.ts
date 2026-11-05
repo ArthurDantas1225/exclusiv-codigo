@@ -9,6 +9,12 @@ export const saleSchema = z.object({
   request_id: z.uuid(),
   customer_id: z.uuid().nullable(),
   discount: z.number().int().nonnegative(),
+  manual_discount: z.number().int().nonnegative().optional(),
+  promotion_discount: z.number().int().nonnegative().optional(),
+  promotion_version: z.number().int().nonnegative().optional(),
+  promotion_campaign_ids: z.array(z.string().max(80)).max(20).optional(),
+  promotion_source: z.enum(["app", "catalog"]).optional(),
+  promotion_order_id: z.uuid().optional(),
   notes: z.string().max(2000),
   items: z
     .array(

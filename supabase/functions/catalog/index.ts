@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.0";
 
 const site = "https://exclusiv-codigo.vercel.app";
-const origins = new Set([site, "http://localhost:3000"]);
+const origins = new Set([site, "https://exclusiv-catalogo.vercel.app", "http://localhost:3000"]);
 
 Deno.serve(async (request: Request) => {
   const origin = request.headers.get("origin") ?? "";
@@ -10,7 +10,7 @@ Deno.serve(async (request: Request) => {
     "access-control-allow-origin": origins.has(origin) ? origin : site,
     "access-control-allow-headers": "apikey, content-type",
     "access-control-allow-methods": "GET, OPTIONS",
-    "cache-control": "public, max-age=300, s-maxage=300, stale-while-revalidate=3600",
+    "cache-control": "no-store",
     vary: "Origin",
   };
   const reply = (status: number, body: unknown) =>
@@ -28,6 +28,31 @@ Deno.serve(async (request: Request) => {
   const { data: shop, error: shopError } = await admin.from("organizations")
     .select("id,name").eq("public_slug", "exclusiv").maybeSingle();
   if (shopError || !shop) return reply(503, { error: "Loja indisponível." });
+  const promotions = async () => {
+    const { data, error } = await admin.from("app_settings").select("value").eq("organization_id", shop.id).eq("key", "promotions").maybeSingle();
+    if (error) throw error;
+    let config: { version?: number; campaigns?: Record<string, unknown>[] } = {};
+    try { config = JSON.parse(data?.value ?? "{}"); } catch { /* Invalid settings are never published. */ }
+    const project = (campaign: Record<string, unknown>) => ({
+      id: campaign.id, createdAt: campaign.createdAt, name: campaign.name, active: campaign.active === true,
+      channels: Array.isArray(campaign.channels) ? campaign.channels.filter((channel) => channel === "app" || channel === "catalog") : [],
+      startsAt: typeof campaign.startsAt === "string" ? campaign.startsAt : undefined,
+      endsAt: typeof campaign.endsAt === "string" ? campaign.endsAt : undefined,
+      productIds: Array.isArray(campaign.productIds) ? campaign.productIds.filter((id) => typeof id === "string") : [],
+      categories: Array.isArray(campaign.categories) ? campaign.categories.filter((value) => typeof value === "string") : [],
+      priority: Number.isSafeInteger(campaign.priority) ? campaign.priority : 0,
+      type: ["percent_tiers", "fixed", "bundle", "buy_get"].includes(String(campaign.type)) ? campaign.type : "invalid",
+      tiers: Array.isArray(campaign.tiers) ? campaign.tiers.filter((tier) => tier && typeof tier === "object" && Number.isSafeInteger((tier as Record<string, unknown>).quantity) && typeof (tier as Record<string, unknown>).percent === "number").map((tier) => ({ quantity: (tier as Record<string, number>).quantity, percent: (tier as Record<string, number>).percent })) : [], minQuantity: campaign.minQuantity,
+      discountCents: campaign.discountCents, bundleQuantity: campaign.bundleQuantity,
+      bundlePriceCents: campaign.bundlePriceCents, buyQuantity: campaign.buyQuantity, freeQuantity: campaign.freeQuantity,
+    });
+    return { version: Number.isSafeInteger(config.version) ? config.version : 0,
+      campaigns: Array.isArray(config.campaigns) ? config.campaigns.filter((campaign) => campaign && typeof campaign === "object").map(project) : [] };
+  };
+  let promotionData: Awaited<ReturnType<typeof promotions>>;
+  try { promotionData = await promotions(); }
+  catch { return reply(503, { error: "Promoções temporariamente indisponíveis." }); }
+  if (new URL(request.url).searchParams.get("view") === "promotions") return reply(200, promotionData);
   const { data: products, error: productError } = await admin.from("products")
     .select("id,name,category,subcategory,collection,price")
     .eq("organization_id", shop.id).eq("active", true).eq("catalog_visible", true)
@@ -63,6 +88,7 @@ Deno.serve(async (request: Request) => {
   }
   return reply(200, {
     shop: shop.name,
+    ...promotionData,
     products: products.map((p) => ({
       id: p.id,
       name: p.name,

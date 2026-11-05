@@ -1,7 +1,7 @@
 import { PublicCatalog } from "@/components/public-catalog";
 import { loadCatalog } from "@/lib/catalog-client";
 import Link from "next/link";
-export const revalidate = 300;
+export const revalidate = 0;
 export default async function CatalogPage() {
   let catalog;
   try { catalog = await loadCatalog(); }

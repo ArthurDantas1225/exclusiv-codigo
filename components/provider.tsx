@@ -175,6 +175,7 @@ export function Provider({ children }: { children: ReactNode }) {
             : [
                 ["sale_items", "sale_id"],
                 ["sale_payments", "sale_id"],
+              ["sale_promotion_details", "sale_id"],
                 ["ledger", "sale_id"],
               ];
       await Promise.all(
@@ -275,7 +276,11 @@ export function Provider({ children }: { children: ReactNode }) {
     retryKeys.current.set(signature, String(requestId));
     try {
       const payload = { ...p, request_id: requestId };
-      const { data: r, error: e } = action === "product_grid"
+      const { data: r, error: e } = action === "sale"
+        ? await supabase!.functions.invoke("sale-with-promotions", { body: payload })
+        : action === "promotions_save"
+          ? await supabase!.rpc("save_promotions", { p: payload })
+        : action === "product_grid"
         ? await supabase!.rpc("save_product_grid_with_taxonomy", { p: payload })
         : action === "product_archive"
           ? await supabase!.rpc("set_product_archived", { target_product_id: p.product_id, archive: p.archive })

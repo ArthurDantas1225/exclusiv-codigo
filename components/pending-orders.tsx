@@ -58,7 +58,7 @@ export function PendingOrders() {
     });
   }, [orders, paymentFilter, query]);
 
-  const totalPending = visibleOrders.reduce((sum, order) => sum + order.items.reduce((itemSum, item) => itemSum + item.quantity * item.unitPrice, 0), 0);
+  const totalPending = visibleOrders.reduce((sum, order) => sum + (order.total ?? order.items.reduce((itemSum, item) => itemSum + item.quantity * item.unitPrice, 0)), 0);
 
   async function confirmOrder(order: PendingOrder) {
     const items = order.items
@@ -79,11 +79,19 @@ export function PendingOrders() {
       return;
     }
 
-    const total = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+    const promotionDiscount = Math.min(subtotal, order.promotionDiscount ?? 0);
+    const total = Math.max(0, order.total ?? subtotal - promotionDiscount);
     const payload = {
       request_id: saleRequestId(order),
       customer_id: customerId || null,
-      discount: 0,
+      discount: promotionDiscount,
+      manual_discount: 0,
+      promotion_discount: promotionDiscount,
+      promotion_version: order.promotionVersion ?? 0,
+      promotion_campaign_ids: order.promotionCampaignIds ?? [],
+      promotion_source: "catalog",
+      promotion_order_id: order.id,
       notes: notes || `Pedido pendente de ${order.customerName} · Pagamento: ${order.payment} · Entrega: ${order.delivery}`,
       items,
       payments: [{ method: paymentMethod, amount: total }],
@@ -172,6 +180,7 @@ export function PendingOrders() {
             <div className="stack-list">
               {visibleOrders.map((order) => {
                 const subtotal = order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+                const orderTotal = order.total ?? subtotal - (order.promotionDiscount ?? 0);
                 return (
                   <Card key={order.id} className="pending-order-card">
                     <div className="row gap-row">
@@ -201,9 +210,10 @@ export function PendingOrders() {
                     </div>
 
                     <div className="total-row total">
-                      <span>Total</span>
-                      <span>{money(subtotal)}</span>
+                      <span>Subtotal</span><span>{money(order.subtotal ?? subtotal)}</span>
                     </div>
+                    {!!order.promotionDiscount && <div className="total-row"><span>Promoção por quantidade</span><span>− {money(order.promotionDiscount)}</span></div>}
+                    <div className="total-row total"><span>Total</span><span>{money(orderTotal)}</span></div>
 
                     <div className="inline-actions">
                       <button onClick={() => setSelected(order)} disabled={!online || busy}>

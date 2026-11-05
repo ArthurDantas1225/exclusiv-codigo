@@ -28,6 +28,9 @@ export function Sales({ id }: { id?: string }) {
     data.profiles.find((p) => p.id === actor)?.name ?? "Equipe EXCLUSIV";
   const companyName = data.app_settings.find((s) => s.key === "company_name")?.value || "EXCLUSIV";
   const payments = data.sale_payments.filter((p) => p.sale_id === id);
+  const promotionDetail = data.sale_promotion_details.find((detail) => detail.sale_id === id);
+  const promotionDiscount = promotionDetail?.promotion_discount ?? 0;
+  const manualDiscount = promotionDetail?.manual_discount ?? Math.max(0, (sale?.discount ?? 0) - promotionDiscount);
   const realProfit = sale ? currentSaleProfit(sale, data.ledger) : null;
   const list = data.sales.filter(
     (s) =>
@@ -44,7 +47,7 @@ export function Sales({ id }: { id?: string }) {
         .includes(query.toLowerCase()),
   );
   const receipt = sale
-    ? `${companyName} · Comprovante de venda #${sale.number}\n${dateTime(sale.created_at)}\nCliente: ${customer?.name ?? "Consumidor final"}\nAtendimento: ${actorName(sale.created_by)}\n${items.map((i) => `${i.quantity} × ${i.product_name} (${i.variant_description}) — ${money(i.total)}`).join("\n")}\nSubtotal: ${money(sale.gross)}\nDesconto: ${money(sale.discount)}\nTotal: ${money(sale.total)}\n${payments.map((p) => `${p.method}: ${money(p.amount)}`).join("\n")}\nReferência: ${sale.id}\nEmitido pela ${companyName}. Comprovante não fiscal; não substitui NFC-e.`
+    ? `${companyName} · Comprovante de venda #${sale.number}\n${dateTime(sale.created_at)}\nCliente: ${customer?.name ?? "Consumidor final"}\nAtendimento: ${actorName(sale.created_by)}\n${items.map((i) => `${i.quantity} × ${i.product_name} (${i.variant_description}) — ${money(i.total)}`).join("\n")}\nSubtotal: ${money(sale.gross)}\n${promotionDiscount ? `Promoção por quantidade: − ${money(promotionDiscount)}\n` : ""}${manualDiscount ? `Desconto manual: − ${money(manualDiscount)}\n` : ""}Desconto total: − ${money(sale.discount)}\nTotal: ${money(sale.total)}\n${payments.map((p) => `${p.method}: ${money(p.amount)}`).join("\n")}\nReferência: ${sale.id}\nEmitido pela ${companyName}. Comprovante não fiscal; não substitui NFC-e.`
     : "";
   const shareReceiptImage = async () => {
     const element = document.getElementById("comprovante-venda-wrapper");
@@ -129,10 +132,8 @@ export function Sales({ id }: { id?: string }) {
                   <span>Subtotal</span>
                   <span>{money(sale.gross)}</span>
                 </div>
-                <div className="total-row">
-                  <span>Desconto</span>
-                  <span>− {money(sale.discount)}</span>
-                </div>
+                {!!promotionDiscount && <div className="total-row"><span>Promoção por quantidade</span><span>− {money(promotionDiscount)}</span></div>}
+                {!!manualDiscount && <div className="total-row"><span>Desconto manual</span><span>− {money(manualDiscount)}</span></div>}
                 <div className="total-row total">
                   <span>Total</span>
                   <span>{money(sale.total)}</span>

@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { coverPhoto, variantPhoto } from "@/lib/pos-photo";
 import { availableVariants, saleSchema } from "@/lib/domain";
 import { averageVariantCost, salaryFromRevenue } from "@/lib/profit";
+import { calculatePromotions, parsePromotions } from "@/lib/promotions";
 type Line = { variant_id: string; quantity: number; unit_price: number };
 export function POS() {
   const { data, run, busy, notify, online, demo } = useStore(),
@@ -64,11 +65,18 @@ export function POS() {
     return () => { mounted = false; };
   }, [displayPhotos]);
   const key = useRef(crypto.randomUUID());
-  const gross = cart.reduce((a, l) => a + l.quantity * l.unit_price, 0),
-    disc =
+  const gross = cart.reduce((a, l) => a + l.quantity * l.unit_price, 0);
+  const promoConfig = parsePromotions(data.app_settings.find((setting) => setting.key === "promotions")?.value);
+  const promotion = calculatePromotions(promoConfig.campaigns, cart.map((line) => {
+    const variant = data.product_variants.find((item) => item.id === line.variant_id);
+    const product = data.products.find((item) => item.id === variant?.product_id);
+    return { productId: variant?.product_id ?? "", category: product?.category ?? "", unitPrice: line.unit_price, quantity: line.quantity };
+  }), "app");
+  const manualDiscount =
       discountType === "%"
-        ? Math.round((gross * Number(discount)) / 100)
+        ? Math.round((Math.max(0, gross - promotion.discount) * Number(discount)) / 100)
         : cents(discount),
+    disc = promotion.discount + Math.min(Math.max(0, gross - promotion.discount), manualDiscount),
     total = gross - disc,
     cartCost = cart.reduce((sum, line) => {
       const variant = data.product_variants.find((item) => item.id === line.variant_id);
@@ -368,8 +376,13 @@ export function POS() {
                 <span>{money(gross)}</span>
               </div>
               <div className="total-row">
-                <span>Desconto</span>
-                <span>− {money(disc)}</span>
+                <span>Promoções automáticas</span>
+                <span>− {money(promotion.discount)}</span>
+              </div>
+              {promotion.savings.map((saving) => <div className="total-row" key={saving.id}><span>{saving.name}</span><span>− {money(saving.discount)}</span></div>)}
+              <div className="total-row">
+                <span>Desconto manual</span>
+                <span>− {money(disc - promotion.discount)}</span>
               </div>
               <div className="total-row total">
                 <span>Total</span>
@@ -484,9 +497,11 @@ export function POS() {
                   busy ||
                   !online ||
                   !cart.length ||
+                  total <= 0 ||
                   paid !== total ||
                   disc < 0 ||
                   disc > gross ||
+                  manualDiscount >= gross - promotion.discount ||
                   (cash > 0 && cents(tendered) < cash)
                 }
                 onClick={async () => {
@@ -494,6 +509,11 @@ export function POS() {
                     request_id: key.current,
                     customer_id: customer || null,
                     discount: disc,
+                    manual_discount: disc - promotion.discount,
+                    promotion_discount: promotion.discount,
+                    promotion_version: promoConfig.version,
+                    promotion_campaign_ids: promotion.campaignIds,
+                    promotion_source: "app",
                     notes: note,
                     items: cart,
                     payments,

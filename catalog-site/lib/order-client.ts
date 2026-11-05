@@ -3,6 +3,7 @@ export type CatalogOrderInput = {
   customerName: string;
   payment: string;
   delivery: string;
+  promotionVersion?: number;
   items: { variantId: string; quantity: number }[];
 };
 
@@ -10,6 +11,9 @@ export type CatalogOrderReceipt = {
   id: string;
   code: string;
   total: number;
+  subtotal: number;
+  discount: number;
+  promotionVersion: number;
   status: "pending";
   items: { productName: string; model: string; color: string; size: string; quantity: number; unitPrice: number }[];
   whatsappUrl: string;

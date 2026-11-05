@@ -1,10 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { calculate, type Campaign, type Line } from "../_shared/promotions.ts";
 
 type Input = {
   idempotencyKey?: string;
   customerName?: string;
   payment?: string;
   delivery?: string;
+  promotionVersion?: number;
   items?: { variantId?: string; quantity?: number }[];
 };
 
@@ -22,6 +24,7 @@ function validate(input: Input) {
   if (!input.payment?.trim() || input.payment.length > 80) return "Forma de pagamento inválida.";
   if (!input.delivery?.trim() || input.delivery.length > 240) return "Forma de entrega inválida.";
   if (!Array.isArray(input.items) || !input.items.length || input.items.length > 30) return "Revise os itens do pedido.";
+  if (!Number.isSafeInteger(input.promotionVersion) || input.promotionVersion! < 0) return "Atualize o catálogo antes de concluir o pedido.";
   if (input.items.some((item) => !validUuid(item.variantId) || !Number.isInteger(item.quantity) || item.quantity! < 1 || item.quantity! > 20)) return "Quantidade ou opção inválida.";
   const variantIds = input.items.map((item) => item.variantId);
   if (new Set(variantIds).size !== variantIds.length) return "Uma opção não pode aparecer duas vezes no pedido.";
@@ -34,10 +37,29 @@ async function sha256(value: string) {
 }
 
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+type ReceiptOrder = {
+  id: string; code: string; subtotal: number; promotion_discount: number; promotion_version: number;
+  total: number; status: string; customer_name: string; payment: string; delivery: string;
+  promotion_summary: { name: string; discount: number }[];
+  catalog_order_items: { product_name: string; model: string; color: string; size: string; quantity: number; unit_price: number }[];
+};
+function receipt(order: ReceiptOrder) {
+  const items = order.catalog_order_items.map((item) => ({ productName: item.product_name, model: item.model, color: item.color, size: item.size, quantity: item.quantity, unitPrice: item.unit_price }));
+  const itemLines = items.flatMap((item, index) => [
+    `${index + 1}. ${item.productName}`,
+    ...(item.model ? [`Modelo: ${item.model}`] : []),
+    `Cor: ${item.color} · Tamanho: ${item.size}`,
+    `Quantidade: ${item.quantity} · Subtotal: ${money(item.unitPrice * item.quantity)}`,
+    "",
+  ]);
+  const summary = [`Subtotal: ${money(order.subtotal)}`, ...(order.promotion_summary ?? []).map((item) => `${item.name}: − ${money(item.discount)}`), ...(order.promotion_discount && !order.promotion_summary?.length ? [`Desconto promocional: − ${money(order.promotion_discount)}`] : []), `Total: ${money(order.total)}`];
+  const message = [`Olá, EXCLUSIV! Quero confirmar o pedido ${order.code}.`, "", `Cliente: ${order.customer_name}`, `Pagamento: ${order.payment}`, `Entrega: ${order.delivery}`, "", "Peças:", ...itemLines, "Resumo:", ...summary].join("\n");
+  return { id: order.id, code: order.code, subtotal: order.subtotal, discount: order.promotion_discount, promotionVersion: order.promotion_version, total: order.total, status: order.status, items, whatsappUrl: `https://wa.me/5584996008220?text=${encodeURIComponent(message)}` };
+}
 
 Deno.serve(async (request: Request) => {
   const origin = request.headers.get("origin") ?? "";
-  const allowed = new Set(["https://exclusiv-catalogo.vercel.app", Deno.env.get("CATALOG_SITE_ORIGIN") ?? "", "http://localhost:3000"]);
+  const allowed = new Set(["https://exclusiv-catalogo.vercel.app", "https://exclusiv-codigo.vercel.app", Deno.env.get("CATALOG_SITE_ORIGIN") ?? "", "http://localhost:3000"]);
   const cors = {
     "access-control-allow-origin": allowed.has(origin) ? origin : "",
     "access-control-allow-headers": "content-type",
@@ -57,36 +79,41 @@ Deno.serve(async (request: Request) => {
   if (validation) return reply(400, { error: validation }, cors);
 
   const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+  const orderSelect = "id,code,subtotal,promotion_discount,promotion_version,promotion_summary,total,status,customer_name,payment,delivery,catalog_order_items(product_name,model,color,size,quantity,unit_price)";
+  const { data: prior } = await admin.from("catalog_orders").select(orderSelect).eq("idempotency_key", input.idempotencyKey!).maybeSingle();
+  if (prior) return reply(200, receipt(prior as unknown as ReceiptOrder), cors);
   const fingerprint = await sha256(request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown");
   const since = new Date(Date.now() - 10 * 60_000).toISOString();
   const { count } = await admin.from("catalog_order_attempts").select("id", { count: "exact", head: true }).eq("fingerprint_hash", fingerprint).gte("created_at", since);
   if ((count ?? 0) >= 8) return reply(429, { error: "Muitas tentativas. Aguarde alguns minutos." }, cors);
   await admin.from("catalog_order_attempts").insert({ fingerprint_hash: fingerprint });
-
-  const { data: created, error: createError } = await admin.rpc("create_catalog_order", { p: input });
+  const promoResponse = await fetch("https://rznnojrtgolekdkcvxnv.supabase.co/functions/v1/catalog?view=promotions", { cache: "no-store", signal: AbortSignal.timeout(8000) }).catch(() => null);
+  if (!promoResponse?.ok) return reply(503, { error: "Não foi possível confirmar as promoções. Tente novamente." }, cors);
+  const promoConfig = await promoResponse.json().catch(() => null) as { version?: number; campaigns?: Campaign[] } | null;
+  if (!promoConfig || !Number.isSafeInteger(promoConfig.version) || input.promotionVersion !== promoConfig.version) return reply(409, { error: "As promoções foram atualizadas. Atualize o catálogo e revise o total." }, cors);
+  const variantIds = input.items!.map((item) => item.variantId!);
+  const { data: variants, error: variantError } = await admin.from("catalog_variants")
+    .select("source_id,product_id,stock,catalog_products!inner(name,category,price,published)")
+    .in("source_id", variantIds);
+  if (variantError) return reply(503, { error: "Não foi possível confirmar os produtos." }, cors);
+  type VariantRow = { source_id: string; product_id: string; stock: number; catalog_products: { name: string; category: string; price: number; published: boolean } };
+  const variantMap = new Map((variants as unknown as VariantRow[] ?? []).map((variant) => [variant.source_id, variant]));
+  let promoLines: Line[];
+  try { promoLines = input.items!.map((item) => {
+    const variant = variantMap.get(item.variantId!);
+    if (!variant || !variant.catalog_products.published || variant.stock < item.quantity!) throw new Error("variant_unavailable");
+    return { productId: variant.product_id, category: variant.catalog_products.category, unitPrice: variant.catalog_products.price, quantity: item.quantity! };
+  }); } catch { return reply(409, { error: "Uma das peças ficou indisponível. Revise o pedido." }, cors); }
+  const promotion = calculate(promoConfig.campaigns ?? [], promoLines);
+  promotion.version = promoConfig.version!;
+  const { data: created, error: createError } = await admin.rpc("create_catalog_order", { p: { ...input, promotion: { version: promotion.version, subtotal: promotion.subtotal, discount: promotion.discount, campaignIds: promotion.campaignIds, applied: promotion.applied } } });
   if (createError) {
     const stock = createError.message.includes("insufficient_stock") || createError.message.includes("variant_unavailable");
     return reply(stock ? 409 : 400, { error: stock ? "Estoque insuficiente para esta opção." : "Não foi possível registrar o pedido." }, cors);
   }
   const { data: order, error: orderError } = await admin.from("catalog_orders")
-    .select("id,code,total,status,customer_name,payment,delivery,catalog_order_items(product_name,model,color,size,quantity,unit_price)")
+    .select(orderSelect)
     .eq("id", created.id).single();
   if (orderError || !order) return reply(503, { error: "Pedido salvo; tente abrir novamente em instantes." }, cors);
-  const items = order.catalog_order_items.map((item) => ({
-    productName: item.product_name, model: item.model, color: item.color, size: item.size,
-    quantity: item.quantity, unitPrice: item.unit_price,
-  }));
-  const lines = items.flatMap((item, index) => [
-    `${index + 1}. ${item.productName}`,
-    ...(item.model ? [`Modelo: ${item.model}`] : []),
-    `Cor: ${item.color} · Tamanho: ${item.size}`,
-    `Quantidade: ${item.quantity} · Subtotal: ${money(item.unitPrice * item.quantity)}`,
-    "",
-  ]);
-  const message = [
-    `Olá, EXCLUSIV! Quero confirmar o pedido ${order.code}.`, "",
-    `Cliente: ${order.customer_name}`, `Pagamento: ${order.payment}`, `Entrega: ${order.delivery}`, "",
-    "Peças:", ...lines, `Total: ${money(order.total)}`,
-  ].join("\n");
-  return reply(200, { id: order.id, code: order.code, total: order.total, status: order.status, items, whatsappUrl: `https://wa.me/5584996008220?text=${encodeURIComponent(message)}` }, cors);
+  return reply(200, receipt(order as unknown as ReceiptOrder), cors);
 });

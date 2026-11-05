@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PublicCatalog, type CatalogData } from "@/components/public-catalog";
 
-export const revalidate = 300;
+export const revalidate = 0;
 export const metadata: Metadata = {
   title: "Catálogo EXCLUSIV",
   description: "Escolha peças, tamanhos e cores e envie seu pedido para a EXCLUSIV pelo WhatsApp.",
@@ -26,5 +26,13 @@ export default async function CatalogPage() {
     <p>Tente novamente em alguns instantes.</p>
     <a className="button primary" href="/catalogo">Tentar novamente</a>
   </main>;
+  try {
+    const response = await fetch("https://rznnojrtgolekdkcvxnv.supabase.co/functions/v1/catalog?view=promotions", { cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (response.ok) {
+      const promotionData = await response.json() as { version?: number; campaigns?: CatalogData["promotions"] };
+      catalog.promotionVersion = promotionData.version ?? 0;
+      catalog.promotions = promotionData.campaigns ?? [];
+    }
+  } catch { /* Products and WhatsApp checkout remain available if promotions cannot load. */ }
   return <PublicCatalog catalog={catalog} />;
 }
