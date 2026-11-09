@@ -1,13 +1,28 @@
 export type Campaign = {
   id: string; createdAt?: string; name: string; active: boolean; channels: string[]; startsAt?: string; endsAt?: string;
-  productIds: string[]; categories: string[]; priority: number; type: "percent_tiers" | "fixed" | "bundle" | "buy_get";
+  productIds: string[]; categories: string[]; requirements?: { kind: "category" | "subcategory" | "product"; value: string; quantity: number }[]; priority: number; type: "percent_tiers" | "fixed" | "bundle" | "buy_get";
   tiers?: { quantity: number; percent: number }[]; minQuantity?: number; discountCents?: number;
   bundleQuantity?: number; bundlePriceCents?: number; buyQuantity?: number; freeQuantity?: number;
 };
 export type Line = { productId: string; category: string; unitPrice: number; quantity: number };
 
+export function promotionProductIds<T extends { id: string; category: string; subcategory?: string }>(products: T[], campaigns: Campaign[], now = new Date()) {
+  const active = campaigns.filter((campaign) => validCampaign(campaign) && campaign.active && campaign.channels.includes("catalog")
+    && (!campaign.startsAt || now >= new Date(`${campaign.startsAt}T00:00:00-03:00`))
+    && (!campaign.endsAt || now <= new Date(`${campaign.endsAt}T23:59:59.999-03:00`)));
+  const normalize = (value: string) => value.trim().toLocaleLowerCase("pt-BR");
+  return new Set(products.filter((product) => active.some((campaign) => {
+    if (campaign.requirements?.length) return campaign.requirements.some((item) => item.kind === "product"
+      ? product.id === item.value
+      : item.kind === "subcategory" ? normalize(product.subcategory ?? "") === normalize(item.value) : normalize(product.category) === normalize(item.value));
+    if (!campaign.productIds.length && !campaign.categories.length) return true;
+    return campaign.productIds.includes(product.id) || campaign.categories.some((category) => normalize(category) === normalize(product.category));
+  })).map((product) => product.id));
+}
+
 function validCampaign(campaign: Campaign) {
   if (!campaign || typeof campaign !== "object" || typeof campaign.id !== "string" || typeof campaign.name !== "string" || !campaign.name.trim() || typeof campaign.active !== "boolean" || !Array.isArray(campaign.channels) || campaign.channels.some((channel) => channel !== "app" && channel !== "catalog") || !Array.isArray(campaign.productIds) || campaign.productIds.some((id) => typeof id !== "string") || !Array.isArray(campaign.categories) || campaign.categories.some((category) => typeof category !== "string") || !Number.isSafeInteger(campaign.priority) || campaign.priority < 0) return false;
+  if (campaign.requirements !== undefined && (!Array.isArray(campaign.requirements) || campaign.requirements.length < 2 || campaign.requirements.length > 10 || campaign.requirements.some((item) => !item || !["category", "subcategory", "product"].includes(item.kind) || typeof item.value !== "string" || !item.value.trim() || item.value.length > 80 || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 2000) || new Set(campaign.requirements.map((item) => `${item.kind}:${item.value.trim().toLocaleLowerCase("pt-BR")}`)).size !== campaign.requirements.length)) return false;
   if ([campaign.startsAt, campaign.endsAt].some((date) => date !== undefined && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(`${date}T00:00:00Z`))))) return false;
   if (campaign.startsAt && campaign.endsAt && campaign.startsAt > campaign.endsAt) return false;
   if (campaign.type === "percent_tiers") return Array.isArray(campaign.tiers) && campaign.tiers.length > 0 && campaign.tiers.length <= 10 && campaign.tiers.every((tier, index) => Number.isInteger(tier.quantity) && tier.quantity > 0 && Number.isInteger(tier.percent) && tier.percent > 0 && tier.percent <= 90 && (index === 0 || tier.quantity > campaign.tiers![index - 1].quantity));

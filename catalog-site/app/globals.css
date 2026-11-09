@@ -1390,8 +1390,9 @@ th {
 .catalog-open { display: block; padding: 0; width: 100%; height: 100%; text-align: left; border: 0; border-radius: 0; background: transparent; color: inherit; cursor: pointer; }
 .catalog-open:hover .catalog-photo img { transform: scale(1.035); }
 .catalog-open:disabled { cursor: default; }
-.catalog-photo { width: 100%; aspect-ratio: 1; display: grid; place-items: center; color: var(--muted); background: #202831; overflow: hidden; }
+.catalog-photo { width: 100%; aspect-ratio: 1; display: grid; place-items: center; color: var(--muted); background: #202831; overflow: hidden; position: relative; }
 .catalog-photo img { width: 100%; height: 100%; object-fit: contain; transition: transform 180ms ease; }
+.catalog-promo-badge { position: absolute; top: 9px; left: 9px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #ff6b3570; border-radius: 999px; padding: 5px 8px; background: #17110df0; color: #ffae8e; font-size: 11px; font-weight: 700; }
 .catalog-card-body { display: grid; gap: 7px; padding: 13px; }
 .catalog-card-body > small { color: var(--muted); font: 11px monospace; letter-spacing: 1.5px; text-transform: uppercase; }
 .catalog-card-body h2 { font-size: 17px; line-height: 1.25; min-height: 2.5em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }

@@ -1,12 +1,12 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ImageOff, Instagram, Maximize2, MessageCircle, Minus, Plus, Search, ShoppingBag, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ImageOff, Instagram, Maximize2, MessageCircle, Minus, Plus, Search, ShoppingBag, SlidersHorizontal, Tag, Trash2, X } from "lucide-react";
 import { money } from "@/lib/format";
 import { galleryForColor, sortedColors, type CatalogImage } from "@/lib/catalog-selection";
 import { catalogCategories, categoryForProduct, categoryNames, searchable, type CatalogCategory } from "@/lib/catalog-taxonomy";
 import { submitCatalogOrder } from "@/lib/order-client";
-import { calculate } from "@/lib/promotions";
+import { calculate, promotionProductIds } from "@/lib/promotions";
 
 type CatalogVariant = { id: string; product_id: string; size: string; color: string; model: string; stock: number };
 type CatalogProduct = { id: string; name: string; category: string; subcategory?: string; collection: string; price: number; image: string | null; images: CatalogImage[]; variants: CatalogVariant[] };
@@ -26,7 +26,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
   const [delivery, setDelivery] = useState("Retirada na loja");
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<CatalogCategory | "Todos">("Todos");
+  const [category, setCategory] = useState<CatalogCategory | "Todos" | "Promoções">("Todos");
   const [subcategory, setSubcategory] = useState("");
   const [sizeFilter, setSizeFilter] = useState("");
   const [colorFilter, setColorFilter] = useState("");
@@ -50,11 +50,13 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
   const genericPhoto = !!image && !image.color.trim();
   const allColors = [...new Set(catalog.products.flatMap((product) => product.variants.map((variant) => variant.color.trim()).filter(Boolean)))].sort();
   const allSizes = [...new Set(catalog.products.flatMap((product) => product.variants.map((variant) => variant.size.trim()).filter(Boolean)))].sort();
-  const subcategories = category === "Todos"
-    ? [...new Set(catalog.products.map((product) => product.subcategory?.trim()).filter((value): value is string => !!value))].sort()
+  const promotedIds = promotionProductIds(catalog.products, catalog.promotions ?? []);
+  const subcategories = category === "Todos" || category === "Promoções"
+    ? [...new Set(catalog.products.filter((product) => category !== "Promoções" || promotedIds.has(product.id)).map((product) => product.subcategory?.trim()).filter((value): value is string => !!value))].sort()
     : [...new Set([...catalogCategories[category],...catalog.products.filter((product) => categoryForProduct(product.category,product.name) === category).map((product) => product.subcategory?.trim()).filter((value): value is string => !!value)])];
   const visibleProducts = catalog.products.filter((product) => {
-    if (category !== "Todos" && categoryForProduct(product.category,product.name) !== category) return false;
+    if (category === "Promoções" && !promotedIds.has(product.id)) return false;
+    if (category !== "Todos" && category !== "Promoções" && categoryForProduct(product.category,product.name) !== category) return false;
     if (subcategory && product.subcategory?.trim() !== subcategory) return false;
     if (sizeFilter && !product.variants.some((variant) => variant.size.trim() === sizeFilter && variant.stock > 0)) return false;
     if (colorFilter && !product.variants.some((variant) => variant.color.trim() === colorFilter && variant.stock > 0)) return false;
@@ -159,8 +161,9 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
     </section>
     <section className="catalog-discovery" aria-label="Pesquisar e filtrar produtos">
       <label className="catalog-search"><Search size={19} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar peça, modelo, cor ou tamanho" aria-label="Pesquisar produtos" /></label>
-      <div className="catalog-categories" role="group" aria-label="Categorias principais">
+      <div className="catalog-categories" role="group" aria-label="Categorias principais e promoções">
         {(["Todos",...categoryNames] as const).map((item) => <button key={item} className={category === item ? "selected" : ""} onClick={() => { setCategory(item); setSubcategory(""); }}>{item}</button>)}
+        <button className={category === "Promoções" ? "selected" : ""} onClick={() => { setCategory("Promoções"); setSubcategory(""); }}><Tag size={15} /> Promoções{promotedIds.size ? ` · ${promotedIds.size}` : ""}</button>
       </div>
       <details className="catalog-filters"><summary><SlidersHorizontal size={17} /> Mais filtros{[subcategory,sizeFilter,colorFilter].filter(Boolean).length ? ` · ${[subcategory,sizeFilter,colorFilter].filter(Boolean).length} ativos` : ""}</summary>
         <div className="catalog-filter-grid">
@@ -182,11 +185,11 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
     </section>
     <div className="catalog-layout">
       <section className="catalog-grid" aria-label="Produtos disponíveis">
-        {!catalog.products.length && <div className="catalog-empty"><ShoppingBag size={28} /><h2>Novidades a caminho</h2><p>Volte em breve para conferir as peças publicadas.</p></div>}
-        {!!catalog.products.length && !visibleProducts.length && <div className="catalog-empty"><Search size={28} /><h2>Nenhuma peça encontrada</h2><p>Experimente outro termo ou limpe os filtros.</p><button className="ghost" onClick={() => { setQuery(""); setCategory("Todos"); setSubcategory(""); setSizeFilter(""); setColorFilter(""); }}>Limpar filtros</button></div>}
+        {!catalog.products.length && <div className="catalog-empty"><ShoppingBag size={28} /><h2>Sem peças disponíveis</h2><p>As peças voltarão ao catálogo quando houver estoque.</p></div>}
+        {!!catalog.products.length && !visibleProducts.length && <div className="catalog-empty">{category === "Promoções" ? <Tag size={28} /> : <Search size={28} />}<h2>{category === "Promoções" ? "Nenhuma peça em promoção" : "Nenhuma peça encontrada"}</h2><p>{category === "Promoções" ? "As peças participantes das promoções ativas aparecerão aqui." : "Experimente outro termo ou limpe os filtros."}</p><button className="ghost" onClick={() => { setQuery(""); setCategory("Todos"); setSubcategory(""); setSizeFilter(""); setColorFilter(""); }}>Ver todo o catálogo</button></div>}
         {visibleProducts.map((product) => <article className="catalog-card" key={product.id}>
           <button className="catalog-open" onClick={() => open(product)} disabled={!product.variants.some((variant) => variant.stock > 0)} aria-label={`Ver detalhes de ${product.name}`}>
-            <div className="catalog-photo">{product.image ? <Image src={product.image} alt={product.name} width={800} height={800} sizes="(max-width: 600px) 46vw, (max-width: 850px) 46vw, 30vw" /> : <ImageOff size={40} />}</div>
+            <div className="catalog-photo">{product.image ? <Image src={product.image} alt={product.name} width={800} height={800} sizes="(max-width: 600px) 46vw, (max-width: 850px) 46vw, 30vw" /> : <ImageOff size={40} />}{promotedIds.has(product.id) && <span className="catalog-promo-badge"><Tag size={13} /> Em promoção</span>}</div>
             <div className="catalog-card-body"><small>{categoryForProduct(product.category,product.name)}{product.subcategory ? ` · ${product.subcategory}` : ""}</small><h2>{product.name}</h2><strong>{money(product.price)}</strong><span>{product.variants.some((variant) => variant.stock > 0) ? `${new Set(product.variants.filter((variant) => variant.stock > 0).map((variant) => variant.color)).size} cores · ${new Set(product.variants.filter((variant) => variant.stock > 0).map((variant) => variant.size)).size} tamanhos` : "Sem estoque"} <ArrowRight size={16} /></span></div>
           </button>
         </article>)}
