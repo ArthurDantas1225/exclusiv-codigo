@@ -49,6 +49,8 @@ export default function Page() {
       return <Inventory />;
     case "configuracoes":
       return <Settings />;
+    case "promocoes":
+      return <Settings initialTab="Promoções" />;
     case "mais":
       return <More />;
     case "stylist":

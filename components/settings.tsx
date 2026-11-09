@@ -1,15 +1,15 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BadgeAlert, BarChart3, ClipboardCheck, Contact, CreditCard, FileUp, HandCoins, Package, ReceiptText, Settings2, ShoppingCart, Sparkles, Truck } from "lucide-react";
+import { ArrowUpRight, BadgeAlert, BarChart3, ClipboardCheck, Contact, CreditCard, FileUp, HandCoins, Package, ReceiptText, Settings2, ShoppingCart, Sparkles, Tag, Truck } from "lucide-react";
 import { Card, Field, Form } from "./ui";
 import { useStore } from "./provider";
 import { supabase } from "@/lib/supabase";
 import { dateTime } from "@/lib/format";
 import { PromotionSettings } from "./promotion-settings";
-export function Settings() {
+export function Settings({ initialTab = "Loja" }: { initialTab?: string }) {
   const { data, run, busy, profile, load } = useStore();
-  const [tab, setTab] = useState("Loja");
+  const [tab, setTab] = useState(initialTab);
   const [activityPerson, setActivityPerson] = useState("");
   const [teamBusy, setTeamBusy] = useState(false);
   const [teamError, setTeamError] = useState("");
@@ -198,6 +198,7 @@ export function Settings() {
 export function More() {
   const modules = [
     ["stylist", "Stylist IA", "Kits e roteiros para Stories", Sparkles],
+    ["promocoes", "Promoções", "Crie descontos por quantidade e kits", Tag],
     ["vendas", "Vendas", "Histórico, recibos e devoluções", ReceiptText],
     ["compras", "Compras", "Entradas de mercadoria e custos", ShoppingCart],
     ["fornecedores", "Fornecedores", "Contatos para reposição", Truck],
