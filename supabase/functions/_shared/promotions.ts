@@ -1,4 +1,5 @@
 export type PromotionTier = { quantity: number; percent: number };
+export type PromotionRequirement = { kind: "category" | "subcategory" | "product"; value: string; quantity: number };
 export type PromotionCampaign = {
   id: string;
   createdAt?: string;
@@ -9,6 +10,7 @@ export type PromotionCampaign = {
   endsAt?: string;
   productIds: string[];
   categories: string[];
+  requirements?: PromotionRequirement[];
   priority: number;
   type: "percent_tiers" | "fixed" | "bundle" | "buy_get";
   tiers?: PromotionTier[];
@@ -20,8 +22,34 @@ export type PromotionCampaign = {
   freeQuantity?: number;
 };
 
-export type PromotionLine = { productId: string; category: string; unitPrice: number; quantity: number };
+export type PromotionLine = { productId: string; category: string; subcategory?: string; unitPrice: number; quantity: number };
 export type PromotionResult = { subtotal: number; discount: number; campaignIds: string[]; savings: { id: string; name: string; discount: number }[] };
+
+function matchesRequirement(line: PromotionLine, item: PromotionRequirement) {
+  if (item.kind === "product") return line.productId === item.value;
+  if (item.kind === "subcategory") return (line.subcategory ?? "").trim().toLocaleLowerCase() === item.value.trim().toLocaleLowerCase();
+  return line.category.trim().toLocaleLowerCase() === item.value.trim().toLocaleLowerCase();
+}
+
+function eligibleLines(campaign: PromotionCampaign, lines: PromotionLine[]) {
+  if (campaign.requirements !== undefined && (!Array.isArray(campaign.requirements) || campaign.requirements.length === 1 || campaign.requirements.length > 10 || campaign.requirements.some((item) => !item || !["category", "subcategory", "product"].includes(item.kind) || typeof item.value !== "string" || !item.value.trim() || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 2000))) return [];
+  if (!campaign.requirements?.length) return lines.filter((line) => (!campaign.productIds?.length && !campaign.categories?.length) || campaign.productIds?.includes(line.productId) || campaign.categories?.includes(line.category));
+  const requirements = campaign.requirements;
+  const remaining = lines.map((line) => line.quantity);
+  const ordered = requirements.map((item) => ({ item, matches: lines.reduce((sum, line) => sum + (matchesRequirement(line, item) ? 1 : 0), 0), specificity: item.kind === "product" ? 3 : item.kind === "subcategory" ? 2 : 1 })).sort((a, b) => a.matches - b.matches || b.specificity - a.specificity);
+  for (const { item } of ordered) {
+    let needed = item.quantity;
+    const candidates = lines.map((line, index) => ({ line, index })).filter(({ line, index }) => remaining[index] > 0 && matchesRequirement(line, item)).sort((a, b) => b.line.unitPrice - a.line.unitPrice);
+    for (const { index } of candidates) {
+      const amount = Math.min(needed, remaining[index]);
+      remaining[index] -= amount;
+      needed -= amount;
+      if (!needed) break;
+    }
+    if (needed) return [];
+  }
+  return lines.filter((line) => requirements.some((item) => matchesRequirement(line, item)));
+}
 
 export function parsePromotions(value?: string | null): { version: number; campaigns: PromotionCampaign[] } {
   try {
@@ -34,7 +62,7 @@ export function promotionDiscount(campaign: PromotionCampaign, lines: PromotionL
   if (!campaign.active || !campaign.channels?.includes(channel)) return 0;
   if (campaign.startsAt && now < new Date(`${campaign.startsAt}T00:00:00-03:00`)) return 0;
   if (campaign.endsAt && now > new Date(`${campaign.endsAt}T23:59:59.999-03:00`)) return 0;
-  const eligible = lines.filter((line) => (!campaign.productIds?.length && !campaign.categories?.length) || campaign.productIds?.includes(line.productId) || campaign.categories?.includes(line.category));
+  const eligible = eligibleLines(campaign, lines);
   const quantity = eligible.reduce((sum, line) => sum + line.quantity, 0);
   const subtotal = eligible.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
   let discount = 0;
@@ -68,7 +96,7 @@ export function promotionDiscount(campaign: PromotionCampaign, lines: PromotionL
 export function calculatePromotions(campaigns: PromotionCampaign[], lines: PromotionLine[], channel: "app" | "catalog", now = new Date()): PromotionResult {
   const subtotal = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
   const candidates = campaigns.map((campaign) => {
-    const scoped = lines.filter((line) => (!campaign.productIds?.length && !campaign.categories?.length) || campaign.productIds?.includes(line.productId) || campaign.categories?.includes(line.category));
+    const scoped = eligibleLines(campaign, lines);
     return { campaign, scoped, discount: promotionDiscount(campaign, lines, channel, now) };
   }).filter((candidate) => candidate.discount > 0);
   const groups: typeof candidates[] = [];

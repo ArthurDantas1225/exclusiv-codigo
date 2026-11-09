@@ -4,7 +4,7 @@ import { calculatePromotions, parsePromotions } from "../_shared/promotions.ts";
 const catalogOrdersUrl = "https://sduacssupdhzwqmlijqv.supabase.co/functions/v1/catalog-orders";
 const origins = new Set(["https://exclusiv-codigo.vercel.app", "http://localhost:3000"]);
 const reply = (status: number, body: unknown, headers: Record<string, string>) => new Response(JSON.stringify(body), { status, headers });
-type ProductVariantRow = { id: string; product_id: string; stock: number; products: { id: string; category: string; price: number; active: boolean } };
+type ProductVariantRow = { id: string; product_id: string; stock: number; products: { id: string; category: string; subcategory: string; price: number; active: boolean } };
 
 Deno.serve(async (request: Request) => {
   const origin = request.headers.get("origin") ?? "";
@@ -40,7 +40,7 @@ Deno.serve(async (request: Request) => {
   const variantIds = items.map((item) => String(item.variant_id));
   if (new Set(variantIds).size !== variantIds.length) return reply(400, { error: "O carrinho contém opções repetidas." }, headers);
   const { data: variantRows, error: variantError } = await admin.from("product_variants")
-    .select("id,product_id,stock,products!inner(id,category,price,active)")
+    .select("id,product_id,stock,products!inner(id,category,subcategory,price,active)")
     .eq("organization_id", profile.organization_id).in("id", variantIds);
   if (variantError) return reply(503, { error: "Não foi possível validar os produtos da venda." }, headers);
   const variants = new Map(((variantRows ?? []) as unknown as ProductVariantRow[]).map((variant) => [variant.id, variant]));
@@ -54,7 +54,7 @@ Deno.serve(async (request: Request) => {
     if (!Number.isSafeInteger(unitPrice) || unitPrice < 0 || (source === "app" && unitPrice !== variant.products.price)) return reply(409, { error: "O preço de um produto foi atualizado. Revise o carrinho." }, headers);
     gross += unitPrice * quantity;
     if (!Number.isSafeInteger(gross)) return reply(400, { error: "O total da venda excede o limite permitido." }, headers);
-    lines.push({ productId: variant.product_id, category: variant.products.category, unitPrice, quantity });
+    lines.push({ productId: variant.product_id, category: variant.products.category, subcategory: variant.products.subcategory ?? "", unitPrice, quantity });
   }
   const { data: setting, error: settingError } = await admin.from("app_settings").select("value").eq("organization_id", profile.organization_id).eq("key", "promotions").maybeSingle();
   if (settingError) return reply(503, { error: "Não foi possível confirmar as promoções." }, headers);

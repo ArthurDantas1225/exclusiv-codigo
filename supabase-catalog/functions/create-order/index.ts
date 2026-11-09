@@ -93,16 +93,16 @@ Deno.serve(async (request: Request) => {
   if (!promoConfig || !Number.isSafeInteger(promoConfig.version) || input.promotionVersion !== promoConfig.version) return reply(409, { error: "As promoções foram atualizadas. Atualize o catálogo e revise o total." }, cors);
   const variantIds = input.items!.map((item) => item.variantId!);
   const { data: variants, error: variantError } = await admin.from("catalog_variants")
-    .select("source_id,product_id,stock,catalog_products!inner(name,category,price,published)")
+    .select("source_id,product_id,stock,catalog_products!inner(name,category,subcategory,price,published)")
     .in("source_id", variantIds);
   if (variantError) return reply(503, { error: "Não foi possível confirmar os produtos." }, cors);
-  type VariantRow = { source_id: string; product_id: string; stock: number; catalog_products: { name: string; category: string; price: number; published: boolean } };
+  type VariantRow = { source_id: string; product_id: string; stock: number; catalog_products: { name: string; category: string; subcategory: string; price: number; published: boolean } };
   const variantMap = new Map((variants as unknown as VariantRow[] ?? []).map((variant) => [variant.source_id, variant]));
   let promoLines: Line[];
   try { promoLines = input.items!.map((item) => {
     const variant = variantMap.get(item.variantId!);
     if (!variant || !variant.catalog_products.published || variant.stock < item.quantity!) throw new Error("variant_unavailable");
-    return { productId: variant.product_id, category: variant.catalog_products.category, unitPrice: variant.catalog_products.price, quantity: item.quantity! };
+    return { productId: variant.product_id, category: variant.catalog_products.category, subcategory: variant.catalog_products.subcategory ?? "", unitPrice: variant.catalog_products.price, quantity: item.quantity! };
   }); } catch { return reply(409, { error: "Uma das peças ficou indisponível. Revise o pedido." }, cors); }
   const promotion = calculate(promoConfig.campaigns ?? [], promoLines);
   promotion.version = promoConfig.version!;

@@ -70,7 +70,7 @@ export function POS() {
   const promotion = calculatePromotions(promoConfig.campaigns, cart.map((line) => {
     const variant = data.product_variants.find((item) => item.id === line.variant_id);
     const product = data.products.find((item) => item.id === variant?.product_id);
-    return { productId: variant?.product_id ?? "", category: product?.category ?? "", unitPrice: line.unit_price, quantity: line.quantity };
+    return { productId: variant?.product_id ?? "", category: product?.category ?? "", subcategory: product?.subcategory ?? "", unitPrice: line.unit_price, quantity: line.quantity };
   }), "app");
   const manualDiscount =
       discountType === "%"

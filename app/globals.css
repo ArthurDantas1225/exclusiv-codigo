@@ -1890,4 +1890,9 @@ th {
 .promotion-product-list label,.checkbox-line { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .promotion-product-list input,.checkbox-line input { width: 16px; height: 16px; accent-color: #f27a21; }
 .checkbox-line { margin-top: 12px; }
+.promotion-composition { grid-column: 1 / -1; }
+.promotion-requirement { display: grid; grid-template-columns: minmax(0,1fr) 110px auto; gap: 10px; align-items: end; }
+.promotion-requirement .field { min-width: 0; margin-bottom: 8px; }
+.promotion-requirement .ghost { margin-bottom: 8px; white-space: nowrap; }
 @media (max-width: 560px) { .promotion-product-list { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .promotion-requirement { grid-template-columns: minmax(0,1fr) 86px; gap: 8px; } .promotion-requirement > button { grid-column: 2; justify-self: end; } }

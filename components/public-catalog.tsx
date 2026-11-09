@@ -35,7 +35,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
   const [submitting, setSubmitting] = useState(false);
   const orderKey = useRef<string | null>(null);
   const subtotal = cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
-  const promotion = calculatePromotions(catalog.promotions ?? [], cart.map((line) => ({ productId: line.product.id, category: line.product.category, unitPrice: line.product.price, quantity: line.quantity })), "catalog");
+  const promotion = calculatePromotions(catalog.promotions ?? [], cart.map((line) => ({ productId: line.product.id, category: line.product.category, subcategory: line.product.subcategory ?? "", unitPrice: line.product.price, quantity: line.quantity })), "catalog");
   const total = subtotal - promotion.discount;
   const count = cart.reduce((sum, line) => sum + line.quantity, 0);
   useEffect(() => { orderKey.current = null; }, [cart, name, payment, delivery]);

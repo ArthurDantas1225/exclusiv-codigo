@@ -40,6 +40,7 @@ Deno.serve(async (request: Request) => {
       endsAt: typeof campaign.endsAt === "string" ? campaign.endsAt : undefined,
       productIds: Array.isArray(campaign.productIds) ? campaign.productIds.filter((id) => typeof id === "string") : [],
       categories: Array.isArray(campaign.categories) ? campaign.categories.filter((value) => typeof value === "string") : [],
+      requirements: Array.isArray(campaign.requirements) ? campaign.requirements.filter((item) => item && typeof item === "object" && ["category", "subcategory", "product"].includes(String((item as Record<string, unknown>).kind)) && typeof (item as Record<string, unknown>).value === "string" && Number.isSafeInteger((item as Record<string, unknown>).quantity)).map((item) => ({ kind: (item as Record<string, unknown>).kind, value: (item as Record<string, unknown>).value, quantity: (item as Record<string, unknown>).quantity })) : [],
       priority: Number.isSafeInteger(campaign.priority) ? campaign.priority : 0,
       type: ["percent_tiers", "fixed", "bundle", "buy_get"].includes(String(campaign.type)) ? campaign.type : "invalid",
       tiers: Array.isArray(campaign.tiers) ? campaign.tiers.filter((tier) => tier && typeof tier === "object" && Number.isSafeInteger((tier as Record<string, unknown>).quantity) && typeof (tier as Record<string, unknown>).percent === "number").map((tier) => ({ quantity: (tier as Record<string, number>).quantity, percent: (tier as Record<string, number>).percent })) : [], minQuantity: campaign.minQuantity,
