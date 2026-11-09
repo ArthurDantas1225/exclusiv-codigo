@@ -13,6 +13,10 @@ type Cell = { id?: string; stock: string; cost: string; minimum: string; sku?: s
 type ColorRow = { key: string; color: string; model: string; cells: Record<string, Cell>; front?: File; back?: File };
 const freshCell = (): Cell => ({ stock: "0", cost: "0", minimum: "2" });
 const rowKey = () => crypto.randomUUID();
+const subcategoryOptionsFor = (category: CatalogCategory, products: Product[]) => [...new Set([
+  ...catalogCategories[category],
+  ...products.filter((item) => categoryForProduct(item.category, item.name) === category).map((item) => item.subcategory?.trim() ?? ""),
+])].filter(Boolean).sort((a, b) => a.localeCompare(b, "pt-BR"));
 function initialRows(variants: Variant[]): ColorRow[] {
   if (!variants.length) return [{ key: rowKey(), color: "", model: "", cells: {} }];
   const groups = new Map<string, ColorRow>();
@@ -30,7 +34,7 @@ function initialRows(variants: Variant[]): ColorRow[] {
 export function ProductEditor({ product, variants, sizeOptions, onSaved }: {
   product?: Product; variants: Variant[]; sizeOptions: string[]; onSaved: (id: string) => void;
 }) {
-  const { run, load, busy, profile, notify } = useStore();
+  const { data, run, load, busy, profile, notify } = useStore();
   const sizes = [...new Set([...sizeOptions.map((s) => s.trim()).filter(Boolean), ...variants.map((v) => v.size)])];
   const [selectedSizes, setSelectedSizes] = useState<string[]>(() =>
     variants.length ? [...new Set(variants.map((v) => v.size))] :
@@ -40,6 +44,12 @@ export function ProductEditor({ product, variants, sizeOptions, onSaved }: {
   const [rows, setRows] = useState<ColorRow[]>(() => initialRows(variants));
   const [category, setCategory] = useState<CatalogCategory>(() => categoryForProduct(product?.category ?? "",product?.name));
   const [subcategory, setSubcategory] = useState(product?.subcategory ?? "");
+  const [creatingSubcategory, setCreatingSubcategory] = useState(() => {
+    const initialCategory = categoryForProduct(product?.category ?? "",product?.name);
+    const initialValue = product?.subcategory?.trim() ?? "";
+    return !!initialValue && !subcategoryOptionsFor(initialCategory, data.products).some((item) => item.toLocaleLowerCase() === initialValue.toLocaleLowerCase());
+  });
+  const subcategoryOptions = subcategoryOptionsFor(category, data.products);
   const [saving, setSaving] = useState(false);
   const saveGuard = useRef(false);
   const updateRow = (key: string, update: Partial<ColorRow>) =>
@@ -118,7 +128,16 @@ export function ProductEditor({ product, variants, sizeOptions, onSaved }: {
     <Field name="name" label="Nome do produto" value={product?.name} required />
     <div className="form-grid">
       <label className="field"><span>Categoria principal</span><select name="category" value={category} onChange={(event) => { setCategory(event.target.value as CatalogCategory); setSubcategory(""); }}>{categoryNames.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-      <label className="field"><span>Subcategoria</span>{catalogCategories[category].length ? <select name="subcategory" value={subcategory} onChange={(event) => setSubcategory(event.target.value)}><option value="">Escolha uma opção</option>{catalogCategories[category].map((item) => <option key={item} value={item}>{item}</option>)}</select> : <input name="subcategory" value={subcategory} onChange={(event) => setSubcategory(event.target.value)} placeholder="Opcional" maxLength={80} />}</label>
+      <div className="field"><label htmlFor="product-subcategory">Subcategoria</label>{creatingSubcategory ? <>
+        <input id="product-subcategory" name="subcategory" value={subcategory} onChange={(event) => setSubcategory(event.target.value)} placeholder="Digite o nome da subcategoria" maxLength={80} />
+        <button type="button" className="ghost" onClick={() => { setCreatingSubcategory(false); setSubcategory(""); }}>Escolher uma existente</button>
+      </> : <>
+        <select id="product-subcategory" name="subcategory" value={subcategory} onChange={(event) => {
+          if (event.target.value === "__create_new_subcategory__") { setSubcategory(""); setCreatingSubcategory(true); }
+          else setSubcategory(event.target.value);
+        }}><option value="">Sem subcategoria</option>{subcategoryOptions.map((item) => <option key={item} value={item}>{item}</option>)}<option value="__create_new_subcategory__">＋ Criar nova subcategoria</option></select>
+        <small className="fine">A subcategoria criada poderá ser usada nos filtros e nas promoções.</small>
+      </>}</div>
     </div>
     <div className="form-grid">
       <Field name="collection" label="Coleção" value={product?.collection} />
