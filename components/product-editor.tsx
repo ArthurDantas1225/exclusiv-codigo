@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { cents } from "@/lib/format";
-import { catalogCategories, categoryForProduct, categoryNames, type CatalogCategory } from "@/lib/catalog-taxonomy";
+import { catalogCategories, catalogStyles, categoryForProduct, categoryNames, type CatalogCategory } from "@/lib/catalog-taxonomy";
 import { supabase } from "@/lib/supabase";
 import type { Product, Variant } from "@/lib/types";
 import { useStore } from "./provider";
@@ -102,6 +102,7 @@ export function ProductEditor({ product, variants, sizeOptions, onSaved }: {
         id: product?.id, name: String(form.get("name") ?? "").trim(),
         category,
         subcategory: subcategory.trim(),
+        style: String(form.get("style") ?? ""),
         collection: String(form.get("collection") ?? "").trim(),
         price: cents(form.get("price")), active: form.get("active") === "on",
         catalog_visible: form.get("catalog_visible") === "on", variants: variantsToSave,
@@ -141,6 +142,7 @@ export function ProductEditor({ product, variants, sizeOptions, onSaved }: {
     </div>
     <div className="form-grid">
       <Field name="collection" label="Coleção" value={product?.collection} />
+      <label className="field"><span>Estilo no catálogo</span><select name="style" defaultValue={product?.style ?? ""}><option value="">Novidades · sem estilo</option>{catalogStyles.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
     </div>
     <Field name="price" label="Preço de venda (R$)" type="number" min={0} step="0.01" value={product ? product.price / 100 : undefined} required />
     <label className="check"><input name="active" type="checkbox" defaultChecked={product?.active ?? true} />Produto ativo para venda</label>

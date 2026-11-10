@@ -7,7 +7,7 @@ import {
   type StylistRequest,
 } from "../lib/stylist.ts";
 import { buildStylistPrompt, generateStylistResult } from "../lib/stylist-server.ts";
-import { createStylistPost } from "../app/api/stylist/route.ts";
+import { createStylistPost } from "../lib/stylist-route.ts";
 
 function requestInput(): StylistRequest {
   const products: Product[] = [

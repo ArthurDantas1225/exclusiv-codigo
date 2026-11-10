@@ -1,5 +1,5 @@
 type Input = {
-  product: { id: string; name: string; category: string; subcategory?: string; collection: string; price: number; active: boolean; catalog_visible?: boolean; archived_at?: string | null };
+  product: { id: string; name: string; category: string; subcategory?: string; style?: string; collection: string; price: number; active: boolean; catalog_visible?: boolean; archived_at?: string | null };
   variants: { id: string; product_id: string; size: string; color: string; model?: string; stock: number; cost?: number; sku?: string; minimum?: number }[];
   images: { id: string; product_id: string; path: string; color?: string; view?: string; is_primary: boolean; hidden_at?: string | null; url: string }[];
   version: number;
@@ -11,6 +11,7 @@ export function buildCatalogProjection(input: Input) {
     product: {
       source_id: product.id, name: product.name, category: product.category,
       subcategory: product.subcategory ?? "", collection: product.collection,
+      style: product.style ?? "",
       price: product.price,
       published: product.active && !!product.catalog_visible && !product.archived_at,
       version,

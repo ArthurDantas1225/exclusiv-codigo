@@ -40,7 +40,7 @@ Deno.serve(async (request: Request) => {
   if (ids.some((id) => !/^[0-9a-f-]{36}$/i.test(id))) return reply(400, { error: "Produto inválido." });
 
   let productQuery = source.from("products")
-    .select("id,name,category,subcategory,collection,price,active,catalog_visible,archived_at")
+    .select("id,name,category,subcategory,style,collection,price,active,catalog_visible,archived_at")
     .eq("organization_id", profile.organization_id).limit(500);
   if (ids.length) productQuery = productQuery.in("id", ids);
   const { data: products, error: productError } = await productQuery;
@@ -87,7 +87,7 @@ Deno.serve(async (request: Request) => {
     }
   }
 
-  const { data: applied, error: applyError } = await catalog.rpc("apply_catalog_snapshot", { p: { products: snapshots } });
+  const { data: applied, error: applyError } = await catalog.rpc("apply_catalog_snapshot_with_style", { p: { products: snapshots } });
   if (applyError) return reply(502, { error: "Não foi possível atualizar o catálogo.", failed });
   return reply(failed.length ? 207 : 200, { applied, failed });
 });

@@ -1,11 +1,11 @@
 export type CatalogImage = { id: string; url: string; color: string; view: string; is_primary: boolean };
 export type CatalogVariant = { id: string; product_id: string; size: string; color: string; model: string; stock: number };
-export type CatalogProduct = { id: string; name: string; category: string; subcategory?: string; collection: string; price: number; image: string | null; images: CatalogImage[]; variants: CatalogVariant[] };
+export type CatalogProduct = { id: string; name: string; category: string; subcategory?: string; style?: string; collection: string; price: number; image: string | null; images: CatalogImage[]; variants: CatalogVariant[] };
 export type CatalogData = { shop: string; products: CatalogProduct[]; settings?: { whatsapp: string; instagram: string; headline: string }; promotionVersion?: number; promotions?: import("./promotions").Campaign[] };
 
 type Rows = {
   settings: { shop_name: string; whatsapp: string; instagram: string; headline: string } | null;
-  products: { source_id: string; name: string; category: string; subcategory: string; collection: string; price: number; published: boolean }[];
+  products: { source_id: string; name: string; category: string; subcategory: string; style?: string; collection: string; price: number; published: boolean }[];
   variants: { source_id: string; product_id: string; size: string; color: string; model: string; stock: number }[];
   images: { source_id: string; product_id: string; url: string; color: string; view: string; is_primary: boolean; position: number }[];
 };
@@ -23,7 +23,7 @@ export function buildCatalogData(rows: Rows): CatalogData {
         .map((image) => ({ id: image.source_id, url: image.url, color: image.color, view: image.view, is_primary: image.is_primary }));
       return {
         id: product.source_id, name: product.name, category: product.category,
-        subcategory: product.subcategory, collection: product.collection, price: product.price,
+        subcategory: product.subcategory, style: product.style ?? "", collection: product.collection, price: product.price,
         image: images[0]?.url ?? null, images,
         variants,
       };
@@ -44,7 +44,7 @@ export async function loadCatalog(fetcher: typeof fetch = fetch): Promise<Catalo
   };
   const [settings, products, variants, images] = await Promise.all([
     get<NonNullable<Rows["settings"]>[]>("catalog_settings?id=eq.exclusiv&select=shop_name,whatsapp,instagram,headline"),
-    get<Rows["products"]>("catalog_products?published=eq.true&select=source_id,name,category,subcategory,collection,price,published&order=updated_at.desc"),
+    get<Rows["products"]>("catalog_products?published=eq.true&select=source_id,name,category,subcategory,style,collection,price,published&order=updated_at.desc"),
     get<Rows["variants"]>("catalog_variants?stock=gt.0&select=source_id,product_id,size,color,model,stock", true),
     get<Rows["images"]>("catalog_images?select=source_id,product_id,url,color,view,is_primary,position&order=position.asc"),
   ]);

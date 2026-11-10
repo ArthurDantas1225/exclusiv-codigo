@@ -9,6 +9,8 @@ export const catalogCategories = {
 
 export type CatalogCategory = keyof typeof catalogCategories;
 export const categoryNames = Object.keys(catalogCategories) as CatalogCategory[];
+export const catalogStyles = ["Streetwear", "Casual", "Surfwear"] as const;
+export type CatalogStyle = typeof catalogStyles[number];
 
 export function categoryForProduct(category: string, name = ""): CatalogCategory {
   const normalized = category.trim().toLocaleLowerCase("pt-BR");

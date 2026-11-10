@@ -9,7 +9,7 @@ import { submitCatalogOrder } from "@/lib/order-client";
 import { calculate, promotionProductIds } from "@/lib/promotions";
 
 type CatalogVariant = { id: string; product_id: string; size: string; color: string; model: string; stock: number };
-type CatalogProduct = { id: string; name: string; category: string; subcategory?: string; collection: string; price: number; image: string | null; images: CatalogImage[]; variants: CatalogVariant[] };
+type CatalogProduct = { id: string; name: string; category: string; subcategory?: string; style?: string; collection: string; price: number; image: string | null; images: CatalogImage[]; variants: CatalogVariant[] };
 export type CatalogData = { shop: string; products: CatalogProduct[]; promotionVersion?: number; promotions?: import("@/lib/promotions").Campaign[] };
 type CartLine = { variant: CatalogVariant; product: CatalogProduct; quantity: number };
 type Selection = { productId: string; model: string; color: string; size: string; quantity: number; imageIndex: number };
@@ -30,6 +30,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
   const [subcategory, setSubcategory] = useState("");
   const [sizeFilter, setSizeFilter] = useState("");
   const [colorFilter, setColorFilter] = useState("");
+  const [activeStyle, setActiveStyle] = useState("Novidades");
   const [sort, setSort] = useState("recentes");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -63,11 +64,25 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
     const haystack = searchable([product.name,product.category,product.subcategory ?? "",product.collection,...product.variants.flatMap((variant) => [variant.model,variant.color,variant.size])].join(" "));
     return haystack.includes(searchable(query));
   }).sort((a,b) => sort === "menor-preco" ? a.price-b.price : sort === "maior-preco" ? b.price-a.price : sort === "nome" ? a.name.localeCompare(b.name,"pt-BR") : 0);
+  const editorialStyles = ["Novidades", "Streetwear", "Casual", "Surfwear"] as const;
+  const productsForStyle = (style: typeof editorialStyles[number]) => visibleProducts.filter((product) =>
+    style === "Novidades" ? !["Streetwear", "Casual", "Surfwear"].includes(product.style ?? "") : product.style === style);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(""), 2000);
     return () => window.clearTimeout(timer);
   }, [notice]);
+  useEffect(() => {
+    const sections = document.querySelectorAll<HTMLElement>("[data-style-section]");
+    if (!sections.length || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      const style = visible?.target.getAttribute("data-style-section");
+      if (style) setActiveStyle(style);
+    }, { rootMargin: "-20% 0px -58% 0px", threshold: [0, 0.2, 0.5] });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [visibleProducts.length]);
   useEffect(() => { orderKey.current = null; }, [cart, name, payment, delivery]);
   useEffect(() => {
     if (!removed) return;
@@ -148,7 +163,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
       setSubmitting(false);
     }
   }
-  return <main className="catalog-page">
+  return <main className="catalog-page" data-active-style={activeStyle}>
     <header className="catalog-header"><div className="wordmark orange">EXCLUSIV<span>®</span></div><span>CATÁLOGO ONLINE</span><a className="catalog-header-cart" href="#pedido" aria-label={`Ver meu pedido, ${count} peças`}><ShoppingBag size={17} /> Pedido · {count}</a></header>
     <section className="catalog-intro">
       <h1>Escolha suas peças exclusivas</h1>
@@ -187,12 +202,15 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
       <section className="catalog-grid" aria-label="Produtos disponíveis">
         {!catalog.products.length && <div className="catalog-empty"><ShoppingBag size={28} /><h2>Sem peças disponíveis</h2><p>As peças voltarão ao catálogo quando houver estoque.</p></div>}
         {!!catalog.products.length && !visibleProducts.length && <div className="catalog-empty">{category === "Promoções" ? <Tag size={28} /> : <Search size={28} />}<h2>{category === "Promoções" ? "Nenhuma peça em promoção" : "Nenhuma peça encontrada"}</h2><p>{category === "Promoções" ? "As peças participantes das promoções ativas aparecerão aqui." : "Experimente outro termo ou limpe os filtros."}</p><button className="ghost" onClick={() => { setQuery(""); setCategory("Todos"); setSubcategory(""); setSizeFilter(""); setColorFilter(""); }}>Ver todo o catálogo</button></div>}
-        {visibleProducts.map((product) => <article className="catalog-card" key={product.id}>
+        {!!visibleProducts.length && <nav className="catalog-style-nav" aria-label="Estilos do catálogo">{editorialStyles.map((style) => <a key={style} href={`#estilo-${searchable(style)}`} className={activeStyle === style ? "active" : ""} onClick={() => setActiveStyle(style)}>{style}</a>)}</nav>}
+        {visibleProducts.length > 0 && editorialStyles.map((style) => { const products = productsForStyle(style); return <section className={`catalog-style-section style-${searchable(style)}`} id={`estilo-${searchable(style)}`} data-style-section={style} key={style} aria-labelledby={`titulo-${searchable(style)}`}>
+          <header className="catalog-style-heading"><span>EXCLUSIV · {style.toUpperCase()}</span><h2 id={`titulo-${searchable(style)}`}>{style === "Novidades" ? "Novidades e peças exclusivas" : `Explore ${style}`}</h2><p>{style === "Novidades" ? "Descubra peças que acabaram de chegar ao catálogo." : style === "Streetwear" ? "Silhuetas urbanas, atitude e conforto para todos os dias." : style === "Casual" ? "Essenciais versáteis para compor seu estilo com leveza." : "Inspiração de praia e liberdade com a energia do surf."}</p></header>
+          <div className="catalog-style-products">{products.length ? products.map((product) => <article className="catalog-card" key={product.id}>
           <button className="catalog-open" onClick={() => open(product)} disabled={!product.variants.some((variant) => variant.stock > 0)} aria-label={`Ver detalhes de ${product.name}`}>
             <div className="catalog-photo">{product.image ? <Image src={product.image} alt={product.name} width={800} height={800} sizes="(max-width: 600px) 46vw, (max-width: 850px) 46vw, 30vw" /> : <ImageOff size={40} />}{promotedIds.has(product.id) && <span className="catalog-promo-badge"><Tag size={13} /> Em promoção</span>}</div>
             <div className="catalog-card-body"><small>{categoryForProduct(product.category,product.name)}{product.subcategory ? ` · ${product.subcategory}` : ""}</small><h2>{product.name}</h2><strong>{money(product.price)}</strong><span>{product.variants.some((variant) => variant.stock > 0) ? `${new Set(product.variants.filter((variant) => variant.stock > 0).map((variant) => variant.color)).size} cores · ${new Set(product.variants.filter((variant) => variant.stock > 0).map((variant) => variant.size)).size} tamanhos` : "Sem estoque"} <ArrowRight size={16} /></span></div>
           </button>
-        </article>)}
+        </article>) : <p className="catalog-style-empty">Novas peças desta seleção aparecem aqui quando estiverem disponíveis.</p>}</div></section>; })}
       </section>
       <aside className="catalog-cart" id="pedido">
         <div className="card-head"><h2>Meu pedido</h2><ShoppingBag size={21} /></div>

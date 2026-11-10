@@ -55,7 +55,7 @@ Deno.serve(async (request: Request) => {
   catch { return reply(503, { error: "Promoções temporariamente indisponíveis." }); }
   if (new URL(request.url).searchParams.get("view") === "promotions") return reply(200, promotionData);
   const { data: products, error: productError } = await admin.from("products")
-    .select("id,name,category,subcategory,collection,price")
+    .select("id,name,category,subcategory,style,collection,price")
     .eq("organization_id", shop.id).eq("active", true).eq("catalog_visible", true)
     .order("created_at", { ascending: false }).limit(100);
   if (productError) return reply(503, { error: "Catálogo indisponível." });
@@ -95,6 +95,7 @@ Deno.serve(async (request: Request) => {
       name: p.name,
       category: p.category,
       subcategory: p.subcategory,
+      style: p.style ?? "",
       collection: p.collection,
       price: p.price,
       image: media.get(p.id)?.[0]?.url ?? null,
