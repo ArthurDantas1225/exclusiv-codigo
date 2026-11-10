@@ -164,6 +164,10 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
     }
   }
   return <main className="catalog-page" data-active-style={activeStyle}>
+    <div className="catalog-scene scene-novidades" aria-hidden="true" />
+    <div className="catalog-scene scene-streetwear" aria-hidden="true" />
+    <div className="catalog-scene scene-casual" aria-hidden="true" />
+    <div className="catalog-scene scene-surfwear" aria-hidden="true" />
     <header className="catalog-header"><div className="wordmark orange">EXCLUSIV<span>®</span></div><span>CATÁLOGO ONLINE</span><a className="catalog-header-cart" href="#pedido" aria-label={`Ver meu pedido, ${count} peças`}><ShoppingBag size={17} /> Pedido · {count}</a></header>
     <section className="catalog-intro">
       <h1>Escolha suas peças exclusivas</h1>

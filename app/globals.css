@@ -1654,6 +1654,138 @@ th {
 @media (max-width: 850px) { .catalog-style-products { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .catalog-style-nav { top: 4px; margin: 0 -2px 17px; padding: 6px; gap: 4px; } .catalog-style-nav a { padding: 8px 11px; font-size: 11px; } .catalog-style-section { scroll-margin-top: 65px; margin-bottom: 36px; padding: 12px 0 18px; } .catalog-style-heading { margin-bottom: 11px; padding: 18px 16px; border-radius: 13px; } .catalog-style-heading h2 { font-size: 22px; } .catalog-style-heading p { font-size: 12px; } .catalog-style-products { gap: 9px; } }
 @media (prefers-reduced-motion: reduce) { .catalog-page, .catalog-page::before, .catalog-style-nav a { scroll-behavior: auto; animation: none !important; transition: none !important; } }
+
+/* Clearer editorial scenery with a frosted-glass storefront layer. */
+.catalog-page {
+  background: #131a22;
+  transition: background-color 700ms ease;
+}
+.catalog-page::before {
+  inset: -8vh -5vw;
+  opacity: .92;
+  background: radial-gradient(ellipse at 18% 22%, #f1845145, transparent 34%), radial-gradient(ellipse at 82% 70%, #697c8d30, transparent 38%), linear-gradient(135deg, #26313c, #151e27 65%, #202a32);
+  transition: background 700ms ease, opacity 700ms ease;
+}
+.catalog-page[data-active-style="Streetwear"]::before {
+  background-image: linear-gradient(180deg, #121a22 0%, #1b2731a6 50%, #101821 100%), radial-gradient(ellipse at 22% 30%, #ff773b88, transparent 30%), radial-gradient(ellipse at 82% 28%, #f6a34f52, transparent 22%), repeating-linear-gradient(90deg, #64717d42 0 5%, #202b35a8 5% 7%, #35414b80 7% 13%, #171f28d9 13% 15%, #4b59654d 15% 21%);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 58%;
+  background-position: center, center, center, bottom;
+}
+.catalog-page[data-active-style="Casual"]::before {
+  background-image: radial-gradient(ellipse at 78% 17%, #f3c27c91, transparent 28%), linear-gradient(145deg, #443b31 0%, #84705a 47%, #302c29 100%), repeating-linear-gradient(112deg, #f6e4c10a 0 2px, transparent 2px 13px);
+  background-size: 100% 100%, 100% 100%, 100% 100%;
+}
+.catalog-page[data-active-style="Surfwear"]::before {
+  background-image: radial-gradient(ellipse at 70% 17%, #f6c98782, transparent 24%), repeating-radial-gradient(ellipse at 52% 76%, transparent 0 22px, #b9f3eb35 23px 25px, transparent 26px 46px), linear-gradient(180deg, #306b78 0%, #438f98 43%, #d3a46f 44%, #284d59 54%, #112f3c 100%);
+  background-size: 100% 100%, 145% 90%, 100% 100%;
+  background-position: center, 50% 68%, center;
+  animation: catalog-ocean-drift 20s ease-in-out infinite alternate;
+}
+.catalog-page[data-active-style="Novidades"]::before {
+  background-image: radial-gradient(ellipse at 18% 22%, #f1845170, transparent 34%), radial-gradient(ellipse at 82% 70%, #8293a344, transparent 38%), linear-gradient(135deg, #37424d, #1e2933 65%, #333b42);
+}
+.catalog-header,
+.catalog-discovery,
+.catalog-style-nav,
+.catalog-style-heading,
+.catalog-card,
+.catalog-cart,
+.catalog-empty,
+.catalog-filters,
+.catalog-search,
+.catalog-detail,
+.catalog-lightbox {
+  border-color: #ffffff30;
+  background-color: #f5f8fb12;
+  box-shadow: inset 0 1px #ffffff30, 0 14px 40px #0610192e;
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+}
+.catalog-header { padding-bottom: 19px; }
+.catalog-header .wordmark { text-shadow: 0 2px 22px #ff8a5540; }
+.catalog-intro { position: relative; }
+.catalog-intro h1 { text-shadow: 0 5px 28px #050a0d70; }
+.catalog-style-section { border-radius: 22px; }
+.catalog-style-heading {
+  border-radius: 20px;
+  background: linear-gradient(115deg, #ffffff1b, #ffffff09 58%, #ffffff14);
+  box-shadow: inset 0 1px #ffffff35, 0 18px 50px #07111b38;
+}
+.style-streetwear .catalog-style-heading { background: linear-gradient(115deg, #ffffff20, #ffffff0b 55%, #ff8a3624); }
+.style-casual .catalog-style-heading { background: linear-gradient(115deg, #fff4e426, #ffffff0b 58%, #e6bb7e24); }
+.style-surfwear .catalog-style-heading { background: linear-gradient(115deg, #e3ffff24, #ffffff09 55%, #54cbd533); }
+.catalog-style-heading > span { text-shadow: 0 1px 12px #0008; }
+.catalog-card { border-radius: 17px; background: #dce8f110; }
+.catalog-card:hover { border-color: #ffffff54; box-shadow: inset 0 1px #ffffff40, 0 18px 44px #07111b55; transform: translateY(-2px); }
+.catalog-photo { background: linear-gradient(145deg, #ffffff0d, #08101828); }
+.catalog-card-body { background: linear-gradient(180deg, #11192325, #11192378); }
+.catalog-card-body > strong { text-shadow: 0 1px 12px #ff81434a; }
+.catalog-style-nav { background-color: #e8f1f719; }
+.catalog-style-nav a.active { background: #ff783b45; border-color: #ffb18a80; box-shadow: inset 0 1px #ffffff35, 0 5px 20px #ff76342c; }
+.catalog-filters summary,
+.catalog-categories button,
+.catalog-style-empty { background-color: #f5f8fb0a; }
+.catalog-cart-line { border-top-color: #ffffff26; }
+.catalog-detail-overlay { background: #08111bb3; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.catalog-detail, .catalog-lightbox { background-color: #19232ddf; }
+.catalog-mobile-cart { border: 1px solid #ffffff55; box-shadow: inset 0 1px #ffffff55, 0 12px 36px #07111b77; }
+@keyframes catalog-ocean-drift { from { background-position: center, 48% 67%, center; } to { background-position: center, 53% 73%, center; } }
+@keyframes catalog-atmosphere { from { transform: translate3d(-.8%, -.3%, 0) scale(1); } to { transform: translate3d(.8%, .3%, 0) scale(1.04); } }
+@media (max-width: 600px) {
+  .catalog-page::before { inset: -4vh -12vw; opacity: .9; }
+  .catalog-header, .catalog-discovery, .catalog-style-nav, .catalog-style-heading, .catalog-card, .catalog-cart, .catalog-filters, .catalog-search { -webkit-backdrop-filter: blur(12px) saturate(130%); backdrop-filter: blur(12px) saturate(130%); }
+  .catalog-card { border-radius: 14px; }
+  .catalog-style-heading { border-radius: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .catalog-page::before { animation: none !important; }
+}
+.catalog-page > .catalog-scene {
+  position: fixed;
+  inset: -2vh -2vw;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  transition: opacity 900ms cubic-bezier(.2,.75,.2,1);
+}
+.catalog-page[data-active-style="Novidades"] .scene-novidades { opacity: .92; }
+.catalog-page[data-active-style="Streetwear"] .scene-streetwear { opacity: .94; }
+.catalog-page[data-active-style="Casual"] .scene-casual { opacity: .94; }
+.catalog-page[data-active-style="Surfwear"] .scene-surfwear { opacity: .94; animation: surf-scene 24s ease-in-out infinite alternate; }
+.scene-novidades {
+  background-image: radial-gradient(ellipse at 20% 24%, #ff995a8c, transparent 32%), radial-gradient(ellipse at 80% 70%, #b5c1cb50, transparent 40%), linear-gradient(140deg, #53606b, #26323d 62%, #3f474e);
+}
+.scene-streetwear {
+  background-image: linear-gradient(180deg, #131b25a8, #121820b5), radial-gradient(ellipse at 21% 25%, #ff773b9c, transparent 30%), radial-gradient(ellipse at 78% 24%, #f6b86773, transparent 22%), repeating-linear-gradient(90deg, #3b4854ed 0 6vw, #252f38f0 6vw 7vw, transparent 7vw 10vw, #34404bed 10vw 17vw, #1b252ef2 17vw 18vw, transparent 18vw 21vw);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 48%;
+  background-position: center, center, center, bottom;
+}
+.scene-casual {
+  background-image: radial-gradient(ellipse at 79% 16%, #ffe0a7bd, transparent 25%), linear-gradient(180deg, #c7a47e40, #473d33a8), repeating-linear-gradient(118deg, #ffe8c51c 0 2px, transparent 2px 17px), linear-gradient(138deg, #71604d, #343b3b 68%, #252e30);
+}
+.scene-surfwear {
+  background-image: radial-gradient(ellipse at 72% 17%, #ffe0a3b8, transparent 23%), repeating-radial-gradient(ellipse at 52% 75%, transparent 0 24px, #d7ffef5c 25px 27px, transparent 28px 50px), linear-gradient(180deg, #72b7be 0%, #89c7c7 41%, #efc18a 42%, #448991 48%, #1b5665 100%);
+  background-size: 100% 100%, 150% 95%, 100% 100%;
+  background-position: center, 50% 72%, center;
+}
+.catalog-page::before { opacity: .3; }
+.catalog-page > *:not(.catalog-scene) { z-index: 1; }
+.catalog-page > .catalog-scene { z-index: 0; }
+.catalog-page[data-active-style="Streetwear"] { background-color: #18212a; }
+.catalog-page[data-active-style="Casual"] { background-color: #29251f; }
+.catalog-page[data-active-style="Surfwear"] { background-color: #17404a; }
+.catalog-style-section { background: linear-gradient(180deg, #12192228, #12192208 48%, #1219221e); }
+.catalog-style-heading { background: #f8fbff22; }
+.catalog-card { background: #e4edf21b; }
+@keyframes surf-scene { from { background-position: center, 46% 69%, center; } to { background-position: center, 54% 77%, center; } }
+@media (max-width: 600px) {
+  .catalog-page > .catalog-scene { inset: -1vh -10vw; }
+  .scene-streetwear { background-size: 100% 100%, 100% 100%, 100% 100%, 100% 42%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .catalog-page > .catalog-scene { transition: none !important; animation: none !important; }
+}
 #sacola {
   scroll-margin-top: 100px;
 }
