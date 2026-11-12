@@ -1,12 +1,14 @@
 "use client";
-import Image from "next/image";
+import Image from "./catalog-image";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ImageOff, Instagram, Maximize2, MessageCircle, Minus, Plus, Search, ShoppingBag, SlidersHorizontal, Tag, Trash2, X } from "lucide-react";
 import { money } from "@/lib/format";
 import { galleryForColor, sortedColors, type CatalogImage } from "@/lib/catalog-selection";
 import { catalogCategories, categoryForProduct, categoryNames, searchable, type CatalogCategory } from "@/lib/catalog-taxonomy";
-import { submitCatalogOrder } from "@/lib/order-client";
+import { CatalogOrderError, submitCatalogOrder } from "@/lib/order-client";
 import { calculate, promotionProductIds } from "@/lib/promotions";
+import { matchesAvailableOptions } from "@/lib/catalog-filter";
+import { useCatalogDialog } from "./use-catalog-dialog";
 
 type CatalogVariant = { id: string; product_id: string; size: string; color: string; model: string; stock: number };
 type CatalogProduct = { id: string; name: string; category: string; subcategory?: string; style?: string; collection: string; price: number; image: string | null; images: CatalogImage[]; variants: CatalogVariant[] };
@@ -33,7 +35,12 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
   const [sort, setSort] = useState("recentes");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [draftLocked, setDraftLocked] = useState(false);
+  const [orderError, setOrderError] = useState("");
+  const [confirmedCode, setConfirmedCode] = useState("");
   const orderKey = useRef<string | null>(null);
+  const sending = useRef(false);
+  useCatalogDialog(!!selection, lightboxIndex === null ? ".catalog-detail" : ".catalog-lightbox");
   const subtotal = cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
   const promotion = calculate(catalog.promotions ?? [], cart.map((line) => ({ productId: line.product.id, category: line.product.category, subcategory: line.product.subcategory, unitPrice: line.product.price, quantity: line.quantity })));
   const total = subtotal - promotion.discount;
@@ -58,8 +65,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
     if (category === "Promoções" && !promotedIds.has(product.id)) return false;
     if (category !== "Todos" && category !== "Promoções" && categoryForProduct(product.category,product.name) !== category) return false;
     if (subcategory && product.subcategory?.trim() !== subcategory) return false;
-    if (sizeFilter && !product.variants.some((variant) => variant.size.trim() === sizeFilter && variant.stock > 0)) return false;
-    if (colorFilter && !product.variants.some((variant) => variant.color.trim() === colorFilter && variant.stock > 0)) return false;
+    if (!matchesAvailableOptions(product.variants, sizeFilter, colorFilter)) return false;
     const haystack = searchable([product.name,product.category,product.subcategory ?? "",product.collection,...product.variants.flatMap((variant) => [variant.model,variant.color,variant.size])].join(" "));
     return haystack.includes(searchable(query));
   }).sort((a,b) => sort === "menor-preco" ? a.price-b.price : sort === "maior-preco" ? b.price-a.price : sort === "nome" ? a.name.localeCompare(b.name,"pt-BR") : 0);
@@ -89,6 +95,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
     return () => { document.body.style.overflow = previous; window.removeEventListener("keydown",onKey); };
   }, [selection,lightboxIndex,selectedProduct]);
   function open(product: CatalogProduct) {
+    if (draftLocked) return;
     const first = product.variants.find((variant) => variant.stock > 0);
     if (!first) return;
     setLightboxIndex(null);
@@ -110,16 +117,19 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
     setSelection(null);
   }
   function changeCart(id: string, delta: number) {
+    if (draftLocked) return;
     const line = cart.find((item) => item.variant.id === id);
     if (line && line.quantity + delta <= 0) setRemoved(line);
     setCart(cart.flatMap((line) => line.variant.id !== id ? [line] :
       line.quantity + delta <= 0 ? [] : [{ ...line, quantity:Math.min(line.variant.stock,line.quantity + delta) }]));
   }
   function removeFromCart(line: CartLine) {
+    if (draftLocked) return;
     setRemoved(line);
     setCart((current) => current.filter((item) => item.variant.id !== line.variant.id));
   }
   function undoCartRemoval() {
+    if (draftLocked) return;
     if (!removed) return;
     const restored = removed;
     setCart((current) => {
@@ -131,7 +141,10 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
   const canSubmit = !!cart.length && !!name.trim() && !submitting;
   async function persistOrder() {
     if (!cart.length || !name.trim()) { setNotice("Informe seu nome e adicione uma peça."); return; }
-    if (submitting) return;
+    if (sending.current) return;
+    sending.current = true;
+    setDraftLocked(true);
+    setOrderError("");
     orderKey.current ??= crypto.randomUUID();
     setSubmitting(true);
     try {
@@ -141,25 +154,30 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
         promotionVersion: catalog.promotionVersion ?? 0,
         items: cart.map((line) => ({ variantId: line.variant.id, quantity: line.quantity })),
       });
+      setConfirmedCode(receipt.code);
       window.location.assign(receipt.whatsappUrl);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Não foi possível registrar o pedido.");
+      if (error instanceof CatalogOrderError && !error.uncertain) {
+        setDraftLocked(false);
+      }
+      setOrderError(error instanceof Error ? error.message : "Não foi possível registrar o pedido. Tente novamente para recuperar o mesmo pedido.");
     } finally {
+      sending.current = false;
       setSubmitting(false);
     }
   }
   return <main className="catalog-page">
-    <header className="catalog-header"><div className="wordmark orange">EXCLUSIV<span>®</span></div><span>CATÁLOGO ONLINE</span><a className="catalog-header-cart" href="#pedido" aria-label={`Ver meu pedido, ${count} peças`}><ShoppingBag size={17} /> Pedido · {count}</a></header>
-    <section className="catalog-intro">
-      <h1>Escolha suas peças exclusivas</h1>
-      <p>Explore as peças, escolha sua cor e tamanho e envie seu pedido para a EXCLUSIV.</p>
-      <div className="catalog-socials">
-        <a href={instagram} target="_blank" rel="noopener noreferrer" className="button"><Instagram size={18} /> @exclusiv_streetwear</a>
-        <a href={directWhatsApp} target="_blank" rel="noopener noreferrer" className="button"><MessageCircle size={18} /> Falar com a loja</a>
-        <a href="#pedido" className="button primary"><ShoppingBag size={18} /> Meu pedido · {count}</a>
-      </div>
+    <a className="catalog-skip" href="#catalogo">Pular para o catálogo</a>
+    <header className="catalog-header"><a className="catalog-brand" href="#inicio" aria-label="EXCLUSIV Streetwear, início"><b aria-hidden="true">E</b><span>EXCLUSIV<small>STREETWEAR</small></span></a><nav aria-label="Navegação do catálogo"><a href="#catalogo">Catálogo</a><a href={instagram} target="_blank" rel="noopener noreferrer">Instagram <Instagram size={14} /></a></nav><a className="catalog-header-cart" href="#pedido" aria-label={`Ver meu pedido, ${count} peças`}><ShoppingBag size={17} /> Pedido · {count}</a></header>
+    <section className="catalog-intro" id="inicio" aria-labelledby="catalog-title">
+      <span className="catalog-brand-label"><i />EXCLUSIV STREETWEAR</span>
+      <h1 id="catalog-title">Streetwear que combina<br />com <em>seu estilo.</em></h1>
+      <p>Explore as peças. Escolha a sua combinação.<br />Converse com a EXCLUSIV pelo WhatsApp.</p>
+      <a className="catalog-hero-panel" href="#catalogo"><span><ArrowRight size={17} /> Seu próximo look começa aqui<small>CATÁLOGO</small></span><strong>Encontre a peça que tem a sua cara.<ArrowRight size={22} /></strong></a>
+      <a href="#catalogo" className="button primary catalog-hero-cta">Explorar catálogo <ArrowRight size={18} /></a>
     </section>
-    <section className="catalog-discovery" aria-label="Pesquisar e filtrar produtos">
+    <section className="catalog-discovery" id="catalogo" aria-label="Pesquisar e filtrar produtos">
+      <div className="catalog-section-heading"><span>EXPLORE AS PEÇAS</span><h2>O próximo look<br />começa aqui<em>.</em></h2></div>
       <label className="catalog-search"><Search size={19} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar peça, modelo, cor ou tamanho" aria-label="Pesquisar produtos" /></label>
       <div className="catalog-categories" role="group" aria-label="Categorias principais e promoções">
         {(["Todos",...categoryNames] as const).map((item) => <button key={item} className={category === item ? "selected" : ""} onClick={() => { setCategory(item); setSubcategory(""); }}>{item}</button>)}
@@ -189,7 +207,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
         {!!catalog.products.length && !visibleProducts.length && <div className="catalog-empty">{category === "Promoções" ? <Tag size={28} /> : <Search size={28} />}<h2>{category === "Promoções" ? "Nenhuma peça em promoção" : "Nenhuma peça encontrada"}</h2><p>{category === "Promoções" ? "As peças participantes das promoções ativas aparecerão aqui." : "Experimente outro termo ou limpe os filtros."}</p><button className="ghost" onClick={() => { setQuery(""); setCategory("Todos"); setSubcategory(""); setSizeFilter(""); setColorFilter(""); }}>Ver todo o catálogo</button></div>}
         {visibleProducts.map((product) => (
           <article className="catalog-card" key={product.id}>
-          <button className="catalog-open" onClick={() => open(product)} disabled={!product.variants.some((variant) => variant.stock > 0)} aria-label={`Ver detalhes de ${product.name}`}>
+          <button className="catalog-open" onClick={() => open(product)} disabled={draftLocked || !product.variants.some((variant) => variant.stock > 0)} aria-label={`Ver detalhes de ${product.name}`}>
             <div className="catalog-photo">{product.image ? <Image src={product.image} alt={product.name} width={800} height={800} sizes="(max-width: 600px) 46vw, (max-width: 850px) 46vw, 30vw" /> : <ImageOff size={40} />}{promotedIds.has(product.id) && <span className="catalog-promo-badge"><Tag size={13} /> Em promoção</span>}</div>
             <div className="catalog-card-body"><small>{categoryForProduct(product.category,product.name)}{product.subcategory ? ` · ${product.subcategory}` : ""}</small><h2>{product.name}</h2><strong>{money(product.price)}</strong><span>{product.variants.some((variant) => variant.stock > 0) ? `${new Set(product.variants.filter((variant) => variant.stock > 0).map((variant) => variant.color)).size} cores · ${new Set(product.variants.filter((variant) => variant.stock > 0).map((variant) => variant.size)).size} tamanhos` : "Sem estoque"} <ArrowRight size={16} /></span></div>
           </button>
@@ -200,15 +218,18 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
         <div className="card-head"><h2>Meu pedido</h2><ShoppingBag size={21} /></div>
         {!cart.length ? <p className="muted">Abra uma peça, escolha cor, tamanho e quantidade.</p> : cart.map((line) => <div className="catalog-cart-line" key={line.variant.id}>
           <div><strong>{line.product.name}</strong><small>{line.variant.model ? `${line.variant.model} · ` : ""}{line.variant.color} · {line.variant.size}</small><b>{money(line.product.price * line.quantity)}</b></div>
-          <div className="catalog-qty"><button aria-label={`Diminuir ${line.product.name}`} onClick={() => changeCart(line.variant.id,-1)}><Minus size={16} /></button><span>{line.quantity}</span><button aria-label={`Aumentar ${line.product.name}`} disabled={line.quantity >= line.variant.stock} onClick={() => changeCart(line.variant.id,1)}><Plus size={16} /></button><button aria-label={`Remover ${line.product.name}`} onClick={() => removeFromCart(line)}><Trash2 size={16} /></button></div>
+          <div className="catalog-qty"><button aria-label={`Diminuir ${line.product.name}`} disabled={draftLocked} onClick={() => changeCart(line.variant.id,-1)}><Minus size={16} /></button><span>{line.quantity}</span><button aria-label={`Aumentar ${line.product.name}`} disabled={draftLocked || line.quantity >= line.variant.stock} onClick={() => changeCart(line.variant.id,1)}><Plus size={16} /></button><button aria-label={`Remover ${line.product.name}`} disabled={draftLocked} onClick={() => removeFromCart(line)}><Trash2 size={16} /></button></div>
         </div>)}
         <div className="total-row"><span>Subtotal</span><span>{money(subtotal)}</span></div>
         {!!promotion.discount && <div className="total-row"><span>Promoção por quantidade</span><span>− {money(promotion.discount)}</span></div>}
         <div className="total-row total"><span>Total estimado</span><span>{money(total)}</span></div>
-        <label htmlFor="buyer-name">Seu nome</label><input id="buyer-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="Como podemos chamar você?" />
-        <label htmlFor="buyer-payment">Como prefere pagar?</label><select id="buyer-payment" value={payment} onChange={(e) => setPayment(e.target.value)}>{["Pix","Dinheiro","Cartão de débito","Cartão de crédito","A combinar"].map((item) => <option key={item}>{item}</option>)}</select>
-        <label htmlFor="buyer-delivery">Como quer receber?</label><select id="buyer-delivery" value={delivery} onChange={(e) => setDelivery(e.target.value)}>{["Retirada na loja","Entrega a combinar"].map((item) => <option key={item}>{item}</option>)}</select>
-        <button className="primary full" disabled={!canSubmit} onClick={() => void persistOrder()}>{submitting ? "Registrando pedido…" : "Enviar pedido no WhatsApp"} <ArrowRight size={18} /></button>
+        <label htmlFor="buyer-name">Seu nome</label><input id="buyer-name" disabled={draftLocked} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="Como podemos chamar você?" />
+        <label htmlFor="buyer-payment">Como prefere pagar?</label><select id="buyer-payment" disabled={draftLocked} value={payment} onChange={(e) => setPayment(e.target.value)}>{["Pix","Dinheiro","Cartão de débito","Cartão de crédito","A combinar"].map((item) => <option key={item}>{item}</option>)}</select>
+        <label htmlFor="buyer-delivery">Como quer receber?</label><select id="buyer-delivery" disabled={draftLocked} value={delivery} onChange={(e) => setDelivery(e.target.value)}>{["Retirada na loja","Entrega a combinar"].map((item) => <option key={item}>{item}</option>)}</select>
+        <button className="primary full" disabled={!canSubmit} onClick={() => void persistOrder()}>{submitting ? "Registrando pedido…" : confirmedCode ? "Reabrir pedido no WhatsApp" : "Enviar pedido no WhatsApp"} <ArrowRight size={18} /></button>
+        {confirmedCode && <div className="catalog-confirmed-order"><p>Pedido {confirmedCode} registrado. Ao voltar do WhatsApp, você pode reabrir esse pedido ou começar outro.</p><button type="button" className="ghost full" disabled={submitting} onClick={() => { setCart([]); setRemoved(null); orderKey.current = null; setConfirmedCode(""); setOrderError(""); setDraftLocked(false); }}>Começar novo pedido</button></div>}
+        {orderError && <p className="catalog-order-error" role="alert">{orderError}</p>}
+        {draftLocked && !submitting && !confirmedCode && <p className="fine">Mantenha esta aba aberta: os dados foram preservados para recuperar o mesmo pedido. Se a conexão continuar indisponível, <a href={directWhatsApp} target="_blank" rel="noopener noreferrer">fale com a loja</a>.</p>}
         <p className="fine">Seu pedido será enviado para (84) 99600-8220. A loja confirma disponibilidade e pagamento; o envio não reserva estoque.</p>
       </aside>
     </div>
@@ -216,7 +237,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
     {selection && selectedProduct && <div className="catalog-detail-overlay" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setSelection(null); }}>
       <section className="catalog-detail" role="dialog" aria-modal="true" aria-label={`Detalhes de ${selectedProduct.name}`}>
         <button className="catalog-detail-back" aria-label="Voltar ao catálogo" onClick={() => setSelection(null)}><ArrowLeft size={18} /> Voltar ao catálogo</button>
-        <button className="catalog-detail-close icon-button" aria-label="Fechar produto" onClick={() => setSelection(null)} autoFocus><X size={22} /></button>
+        <button className="catalog-detail-close icon-button" aria-label="Fechar produto" onClick={() => setSelection(null)}><X size={22} /></button>
         <div className="catalog-detail-gallery">
           {image ? <button type="button" className="catalog-detail-main-photo" onClick={openLightbox} aria-label="Ampliar imagem e ver todas as fotos"><Image src={image.url} alt={`${selectedProduct.name} · ${genericPhoto ? "imagem geral" : image.color} · ${viewLabels[image.view] ?? "Foto"}`} width={900} height={900} /><span className="catalog-zoom-hint"><Maximize2 size={16} /> Ampliar</span></button> : <div className="catalog-detail-main-photo"><div className="catalog-photo-empty"><ImageOff size={38} /><span>Foto de {selection.color} ainda não disponível</span></div></div>}
           {image && <p className="fine catalog-photo-caption">{genericPhoto ? `Imagem geral; a foto da peça na cor ${selection.color.trim()} ainda não foi identificada.` : `Foto da cor ${image.color.trim()} · ${viewLabels[image.view] ?? "Foto"}${image.color.trim().toLocaleLowerCase("pt-BR") !== selection.color.trim().toLocaleLowerCase("pt-BR") ? `. A cor escolhida é ${selection.color.trim()}.` : ""}`}</p>}
@@ -242,7 +263,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
       </section>
     </div>}
     {notice && <div className={`toast catalog-toast ${count ? "has-cart" : ""}`} role="status" onClick={() => setNotice("")}>{notice}</div>}
-    {removed && <div className={`undo-toast catalog-undo ${count ? "has-cart" : ""}`} role="status"><span>Peça removida.</span><button onClick={undoCartRemoval}>Desfazer</button></div>}
-    <footer className="catalog-footer">EXCLUSIV · Seu estilo, sua rua.</footer>
+    {removed && <div className={`undo-toast catalog-undo ${count ? "has-cart" : ""}`} role="status"><span>Peça removida.</span><button disabled={draftLocked} onClick={undoCartRemoval}>Desfazer</button></div>}
+    <footer className="catalog-footer"><div><strong>EXCLUSIV STREETWEAR</strong><p>Seu estilo. Seu corre.</p></div><a href={instagram} target="_blank" rel="noopener noreferrer"><Instagram size={17} /> Instagram oficial</a><a href={directWhatsApp} target="_blank" rel="noopener noreferrer"><MessageCircle size={17} /> Fale com a loja</a><a href="#inicio">Voltar ao topo ↑</a></footer>
   </main>;
 }
