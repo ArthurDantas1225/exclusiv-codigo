@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.0";
 import { calculate, type Campaign, type Line } from "../_shared/promotions.ts";
+import { createWhatsAppMessage, type ReceiptOrder } from "./receipt-message.ts";
 
 type Input = {
   idempotencyKey?: string;
@@ -36,24 +37,9 @@ async function sha256(value: string) {
   return [...new Uint8Array(bytes)].map((part) => part.toString(16).padStart(2, "0")).join("");
 }
 
-const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
-type ReceiptOrder = {
-  id: string; code: string; subtotal: number; promotion_discount: number; promotion_version: number;
-  total: number; status: string; customer_name: string; payment: string; delivery: string;
-  promotion_summary: { name: string; discount: number }[];
-  catalog_order_items: { product_name: string; model: string; color: string; size: string; quantity: number; unit_price: number }[];
-};
 function receipt(order: ReceiptOrder) {
   const items = order.catalog_order_items.map((item) => ({ productName: item.product_name, model: item.model, color: item.color, size: item.size, quantity: item.quantity, unitPrice: item.unit_price }));
-  const itemLines = items.flatMap((item, index) => [
-    `${index + 1}. ${item.productName}`,
-    ...(item.model ? [`Modelo: ${item.model}`] : []),
-    `Cor: ${item.color} · Tamanho: ${item.size}`,
-    `Quantidade: ${item.quantity} · Subtotal: ${money(item.unitPrice * item.quantity)}`,
-    "",
-  ]);
-  const summary = [`Subtotal: ${money(order.subtotal)}`, ...(order.promotion_summary ?? []).map((item) => `${item.name}: − ${money(item.discount)}`), ...(order.promotion_discount && !order.promotion_summary?.length ? [`Desconto promocional: − ${money(order.promotion_discount)}`] : []), `Total: ${money(order.total)}`];
-  const message = [`Olá, EXCLUSIV! Quero confirmar o pedido ${order.code}.`, "", `Cliente: ${order.customer_name}`, `Pagamento: ${order.payment}`, `Entrega: ${order.delivery}`, "", "Peças:", ...itemLines, "Resumo:", ...summary].join("\n");
+  const message = createWhatsAppMessage(order);
   return { id: order.id, code: order.code, subtotal: order.subtotal, discount: order.promotion_discount, promotionVersion: order.promotion_version, total: order.total, status: order.status, items, whatsappUrl: `https://wa.me/5584996008220?text=${encodeURIComponent(message)}` };
 }
 

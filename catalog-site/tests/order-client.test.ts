@@ -33,6 +33,7 @@ test("order submission preserves a server rejection before WhatsApp", async () =
 test("production catalog origin is allowed by the order function", () => {
   const handler = readFileSync(new URL("../../supabase-catalog/functions/create-order/index.ts", import.meta.url), "utf8");
   assert.match(handler, /https:\/\/exclusiv-catalogo\.vercel\.app/);
+  assert.match(handler, /createWhatsAppMessage\(order\)/);
 });
 
 test("duplicate variants are rejected before an order total can diverge from its items", () => {

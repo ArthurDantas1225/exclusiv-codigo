@@ -25,7 +25,7 @@ export function whatsappOrderUrl(lines: OrderLine[], name: string, payment: stri
       "",
     ].join("\n")),
     "*RESUMO*",
-    `Subtotal: ${money(subtotal)}`,
+    ...(discount ? [`Subtotal: ${money(subtotal)}`] : []),
     ...(discount ? [`Promoção: ${promo?.campaignNames.join(", ") || "Desconto por quantidade"}`, `Desconto: − ${money(discount)}`] : []),
     `Total estimado: ${money(total)}`,
     `Pagamento desejado: ${payment.trim()}`,
