@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock3, Search, Trash2 } from "lucide-react";
 import { useStore } from "./provider";
+import { CustomerForm } from "./customers";
 import { Card, Empty, Field, Sheet } from "./ui";
 import { money, dateTime } from "@/lib/format";
 import {
@@ -25,6 +26,7 @@ export function PendingOrders() {
   const [orders, setOrders] = useState<PendingOrder[]>([]);
   const [selected, setSelected] = useState<PendingOrder | null>(null);
   const [customerId, setCustomerId] = useState("");
+  const [addingCustomer, setAddingCustomer] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("Pix");
   const [notes, setNotes] = useState("");
   const [query, setQuery] = useState("");
@@ -216,7 +218,7 @@ export function PendingOrders() {
                     <div className="total-row total"><span>Total</span><span>{money(orderTotal)}</span></div>
 
                     <div className="inline-actions">
-                      <button onClick={() => setSelected(order)} disabled={!online || busy}>
+                      <button onClick={() => { setAddingCustomer(false); setCustomerId(""); setSelected(order); }} disabled={!online || busy}>
                         Preencher e confirmar
                       </button>
                       <button
@@ -269,6 +271,23 @@ export function PendingOrders() {
             </select>
           </Field>
 
+          {addingCustomer ? (
+            <div className="card">
+              <h3>Cadastrar cliente do pedido</h3>
+              <CustomerForm
+                defaultName={selected.customerName}
+                onSaved={(id) => { setCustomerId(id); setAddingCustomer(false); }}
+              />
+              <button type="button" className="ghost" disabled={busy} onClick={() => setAddingCustomer(false)}>
+                Cancelar cadastro
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="ghost" disabled={busy || !online} onClick={() => setAddingCustomer(true)}>
+              Cadastrar cliente
+            </button>
+          )}
+
           <Field label="Forma de pagamento" name="payment-method">
             <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
               {methods.map((method) => (
@@ -284,7 +303,7 @@ export function PendingOrders() {
           </Field>
 
           <div className="inline-actions">
-            <button onClick={() => void confirmOrder(selected)} disabled={busy || !online}>
+            <button onClick={() => void confirmOrder(selected)} disabled={busy || !online || addingCustomer}>
               {busy ? "Registrando…" : "Confirmar venda"}
             </button>
             <button className="ghost" onClick={() => setSelected(null)}>

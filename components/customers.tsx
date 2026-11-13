@@ -11,33 +11,33 @@ import type { Customer } from "@/lib/types";
 export function CustomerForm({
   customer,
   onSaved,
+  defaultName,
 }: {
   customer?: Customer;
-  onSaved: () => void;
+  onSaved: (id: string) => void;
+  defaultName?: string;
 }) {
   const { run, busy } = useStore();
   return (
     <Form
       busy={busy}
       onSubmit={async (f) => {
-        if (
-          await run("customer", {
-            id: customer?.id,
-            name: f.get("name"),
-            phone: f.get("phone"),
-            email: f.get("email"),
-            instagram: f.get("instagram"),
-            notes: f.get("notes"),
-            tags: f.get("tags"),
-            marketing_consent: f.get("marketing_consent") === "on",
-            credit_enabled: f.get("credit_enabled") === "on",
-            credit_limit: cents(f.get("credit_limit")),
-          })
-        )
-          onSaved();
+        const id = await run("customer", {
+          id: customer?.id,
+          name: f.get("name"),
+          phone: f.get("phone"),
+          email: f.get("email"),
+          instagram: f.get("instagram"),
+          notes: f.get("notes"),
+          tags: f.get("tags"),
+          marketing_consent: f.get("marketing_consent") === "on",
+          credit_enabled: f.get("credit_enabled") === "on",
+          credit_limit: cents(f.get("credit_limit")),
+        });
+        if (id) onSaved(id);
       }}
     >
-      <Field name="name" label="Nome" value={customer?.name} required />
+      <Field name="name" label="Nome" value={customer?.name ?? defaultName} required />
       <Field
         name="phone"
         label="WhatsApp com DDD"
