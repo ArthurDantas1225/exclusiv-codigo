@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCheck, Clock3, Search, Trash2 } from "lucide-react";
+import { Clock3, Search, Trash2 } from "lucide-react";
 import { useStore } from "./provider";
-import { Card, Empty, Field } from "./ui";
+import { Card, Empty, Field, Sheet } from "./ui";
 import { money, dateTime } from "@/lib/format";
 import {
   cancelRemotePendingOrder,
@@ -239,11 +239,7 @@ export function PendingOrders() {
       )}
 
       {selected && (
-        <Card className="pending-order-confirmation">
-          <div className="card-head">
-            <h2>Confirmar pedido pendente</h2>
-            <CheckCheck size={20} />
-          </div>
+        <Sheet title="Confirmar pedido pendente" close={() => setSelected(null)}>
           <p className="fine">
             Cliente: <strong>{selected.customerName}</strong> · Pagamento desejado: {selected.payment} · Entrega: {selected.delivery}
           </p>
@@ -295,7 +291,7 @@ export function PendingOrders() {
               Fechar
             </button>
           </div>
-        </Card>
+        </Sheet>
       )}
     </>
   );
