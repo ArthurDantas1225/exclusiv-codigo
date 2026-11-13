@@ -22,3 +22,9 @@ Função `catalog-orders` publicada na versão 3, projeto `sduacssupdhzwqmlijqv`
 - Tentativa de conferência da tela privada no navegador do agente exigiu login; não foram lidas credenciais nem validada a listagem com uma sessão real da equipe nessa etapa.
 
 Após a publicação, basta atualizar/reabrir a aba Pedidos em uma sessão válida da equipe. Pedidos já registrados não precisam ser enviados novamente.
+
+## Correção da sessão — 13/11/2026
+
+A versão 2.57.0 do SDK usada pelas Edge Functions combina o cabeçalho global `authorization` com `Authorization` criado pelo cliente de autenticação. O resultado era um Bearer duplicado, recusado como sessão inválida. Alterado o cabeçalho global para `Authorization` em catalog-orders e sync-catalog.
+
+O teste de autenticação passou a conferir o cabeçalho efetivamente recebido pelo serviço Auth, em vez de aceitar o token informado ao teste. Reproduzido 401 antes e 200 após a correção com o SDK exato 2.57.0 instalado temporariamente, sem alterar dependências do projeto. Sessões ausentes/inválidas e perfis inativos continuam bloqueados. Os 82 testes do projeto, TypeScript e lint do teste passaram. As duas funções foram publicadas como versão 4 ACTIVE. A confirmação da tela com uma sessão real ainda depende do acesso autenticado do usuário; não foi usada sua senha ou token.

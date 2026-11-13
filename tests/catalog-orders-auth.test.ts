@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import test from "node:test";
 import ts from "typescript";
-import { createClient } from "@supabase/supabase-js";
+import { createRequire } from "node:module";
+import { createClient as defaultCreateClient } from "@supabase/supabase-js";
+const createClient: typeof defaultCreateClient = process.env.SUPABASE_TEST_CLIENT ? createRequire(import.meta.url)(process.env.SUPABASE_TEST_CLIENT).createClient : defaultCreateClient;
 
 async function runBridge(token: string | null, active = true) {
   let handler: (request: Request) => Promise<Response>;
@@ -13,7 +15,7 @@ async function runBridge(token: string | null, active = true) {
     const url = String(input);
     const headers = new Headers(init?.headers);
     if (url.includes('/auth/v1/user')) {
-      return token === 'team-session' ? Response.json({ id:'11111111-1111-4111-8111-111111111111' }) : Response.json({message:'Invalid token'}, {status:401});
+      return headers.get('authorization') === 'Bearer team-session' ? Response.json({ id:'11111111-1111-4111-8111-111111111111' }) : Response.json({message:'Invalid token'}, {status:401});
     }
     if (url.includes('/rest/v1/profiles')) {
       const auth = headers.get('authorization') ?? '';
