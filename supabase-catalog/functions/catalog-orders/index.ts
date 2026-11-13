@@ -24,7 +24,10 @@ Deno.serve(async (request: Request) => {
 
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return reply(401, { error: "Sessão necessária." });
-  const source = createClient(erpUrl, erpKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const source = createClient(erpUrl, erpKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { authorization: `Bearer ${token}` } },
+  });
   const { data: auth, error: authError } = await source.auth.getUser(token);
   if (authError || !auth.user) return reply(401, { error: "Sessão inválida." });
   const { data: profile } = await source.from("profiles").select("id").eq("id", auth.user.id).eq("active", true).maybeSingle();

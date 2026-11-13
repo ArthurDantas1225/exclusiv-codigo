@@ -3,3 +3,7 @@
 # and the organization scope before reading or publishing any product.
 [functions.sync-catalog]
 verify_jwt = false
+
+# The order bridge also validates ERP sessions inside its handler.
+[functions.catalog-orders]
+verify_jwt = false
