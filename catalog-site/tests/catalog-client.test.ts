@@ -38,7 +38,7 @@ test("catalog keeps a published in-stock product without a photo", () => {
   assert.equal(catalog.products[0].variants[0].id, "v1");
 });
 
-test("catalog falls back to the ERP snapshot when the separate database has no photos", async () => {
+test("ERP photo fallback preserves the promotion version and campaigns used by checkout", async () => {
   const previousUrl = process.env.NEXT_PUBLIC_CATALOG_SUPABASE_URL;
   const previousKey = process.env.NEXT_PUBLIC_CATALOG_SUPABASE_PUBLISHABLE_KEY;
   process.env.NEXT_PUBLIC_CATALOG_SUPABASE_URL = "https://catalog.test";
@@ -47,10 +47,11 @@ test("catalog falls back to the ERP snapshot when the separate database has no p
     shop: "EXCLUSIV",
     products: [{ id: "p1", name: "Camisa", category: "Camisa", subcategory: "Básica", collection: "", price: 7000, image: "https://erp.test/photo.webp", images: [{ id: "i1", url: "https://erp.test/photo.webp", color: "Preta", view: "front", is_primary: true }], variants: [{ id: "v1", product_id: "p1", size: "M", color: "Preta", model: "Padrão", stock: 1 }] }],
   };
+  const campaigns = [{ id:"campaign-current", name:"Promoção real", active:true, channels:["catalog"], productIds:[], categories:[], priority:0, type:"fixed", minQuantity:2, discountCents:100 }];
   const fetcher = async (input: string | URL | Request) => {
     const url = String(input);
-    if (url.includes("functions/v1/catalog?view=promotions")) return Response.json({ version: 0, campaigns: [] });
-    if (url.endsWith("functions/v1/catalog")) return Response.json(fallback);
+    if (url.includes("functions/v1/catalog?view=promotions")) return Response.json({ version: 2, campaigns });
+    if (url.endsWith("functions/v1/catalog")) return Response.json({ ...fallback, version:2, campaigns });
     if (url.includes("catalog_settings")) return Response.json([]);
     if (url.includes("catalog_products")) return Response.json([{ source_id: "p1", name: "Camisa", category: "Camisa", subcategory: "Básica", collection: "", price: 7000, published: true }]);
     return Response.json([]);
@@ -59,6 +60,13 @@ test("catalog falls back to the ERP snapshot when the separate database has no p
   try {
     const catalog = await loadCatalog(fetcher as typeof fetch);
     assert.equal(catalog.products[0].image, "https://erp.test/photo.webp");
+    assert.equal(catalog.promotionVersion, 2);
+    assert.deepEqual(catalog.promotions, campaigns);
+    // Older ERP snapshots may omit promotion fields entirely.
+    const legacy = await loadCatalog((async (input) => String(input).endsWith("functions/v1/catalog")
+      ? Response.json(fallback) : fetcher(input)) as typeof fetch);
+    assert.equal(legacy.promotionVersion, 2);
+    assert.deepEqual(legacy.promotions, campaigns);
   } finally {
     if (previousUrl === undefined) delete process.env.NEXT_PUBLIC_CATALOG_SUPABASE_URL;
     else process.env.NEXT_PUBLIC_CATALOG_SUPABASE_URL = previousUrl;

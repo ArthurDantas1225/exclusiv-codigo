@@ -59,11 +59,13 @@ export async function loadCatalog(fetcher: typeof fetch = fetch): Promise<Catalo
       cache: "no-store", signal: AbortSignal.timeout(8000),
     });
     if (!response.ok) return catalog;
-    const fallback = await response.json() as CatalogData;
+    const fallback = await response.json() as CatalogData & { version?: number; campaigns?: import("./promotions").Campaign[] };
     return Array.isArray(fallback.products) ? {
       ...fallback,
       products: fallback.products.filter((product) => product.variants?.some((variant) => variant.stock > 0)),
       settings: catalog.settings ?? fallback.settings,
+      promotionVersion: fallback.promotionVersion ?? fallback.version ?? catalog.promotionVersion,
+      promotions: fallback.promotions ?? fallback.campaigns ?? catalog.promotions,
     } : catalog;
   } catch {
     return catalog;

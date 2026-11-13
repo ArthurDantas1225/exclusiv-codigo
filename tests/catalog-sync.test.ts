@@ -34,6 +34,15 @@ test("catalog synchronization runs beside the catalog data and validates the ERP
   assert.doesNotMatch(handler, /CATALOG_SUPABASE_SERVICE_ROLE_KEY/);
 });
 
+test("cross-project sync uses ERP authentication instead of the catalog gateway JWT", () => {
+  const config = readFileSync(new URL("../supabase-catalog/config.toml", import.meta.url), "utf8");
+  const handler = readFileSync(new URL("../supabase-catalog/functions/sync-catalog/index.ts", import.meta.url), "utf8");
+  assert.match(config, /\[functions\.sync-catalog\]\s*verify_jwt\s*=\s*false/);
+  assert.match(handler, /auth\.getUser\(token\)/);
+  assert.match(handler, /\.eq\("active", true\)/);
+  assert.match(handler, /\.eq\("organization_id", profile\.organization_id\)/);
+});
+
 test("snapshot migration avoids a PL/pgSQL product_id name collision", () => {
   const repair = readFileSync(new URL("../supabase-catalog/migrations/20261014160000_fix_catalog_snapshot.sql", import.meta.url), "utf8");
   assert.match(repair, /snapshot_product_id uuid/);

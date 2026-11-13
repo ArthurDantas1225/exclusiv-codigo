@@ -1,0 +1,5 @@
+# ERP sessions are issued by a different Supabase project.
+# sync-catalog validates the token with ERP auth.getUser, the active profile,
+# and the organization scope before reading or publishing any product.
+[functions.sync-catalog]
+verify_jwt = false
