@@ -1,6 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.0";
 import { calculate, type Campaign, type Line } from "../_shared/promotions.ts";
-import { createWhatsAppMessage, type ReceiptOrder } from "./receipt-message.ts";
+import { createWhatsAppMessage, type ReceiptOrder as BaseReceiptOrder } from "./receipt-message.ts";
+
+import { buildPixPayload, type PixSettings } from "../_shared/inter-pix.ts";
+
+type ReceiptOrder = BaseReceiptOrder & { payment_status?: string; pix_snapshot?: PixSettings };
 
 type Input = {
   idempotencyKey?: string;
@@ -40,7 +44,7 @@ async function sha256(value: string) {
 function receipt(order: ReceiptOrder) {
   const items = order.catalog_order_items.map((item) => ({ productName: item.product_name, model: item.model, color: item.color, size: item.size, quantity: item.quantity, unitPrice: item.unit_price }));
   const message = createWhatsAppMessage(order);
-  return { id: order.id, code: order.code, subtotal: order.subtotal, discount: order.promotion_discount, promotionVersion: order.promotion_version, total: order.total, status: order.status, items, whatsappUrl: `https://wa.me/5584996008220?text=${encodeURIComponent(message)}` };
+  return { id: order.id, code: order.code, subtotal: order.subtotal, discount: order.promotion_discount, promotionVersion: order.promotion_version, total: order.total, status: order.status, paymentStatus: order.payment_status ?? "not_required", pix: order.pix_snapshot && ["pending","failed"].includes(order.status) ? { copyPaste: buildPixPayload(order.pix_snapshot, Number(order.total), order.code), receiverName: order.pix_snapshot.receiverName } : undefined, items, whatsappUrl: `https://wa.me/5584996008220?text=${encodeURIComponent(message)}` };
 }
 
 Deno.serve(async (request: Request) => {
@@ -65,7 +69,7 @@ Deno.serve(async (request: Request) => {
   if (validation) return reply(400, { error: validation }, cors);
 
   const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-  const orderSelect = "id,code,subtotal,promotion_discount,promotion_version,promotion_summary,total,status,customer_name,payment,delivery,catalog_order_items(product_name,model,color,size,quantity,unit_price)";
+  const orderSelect = "id,code,subtotal,promotion_discount,promotion_version,promotion_summary,total,status,payment_status,pix_snapshot,customer_name,payment,delivery,catalog_order_items(product_name,model,color,size,quantity,unit_price)";
   const { data: prior } = await admin.from("catalog_orders").select(orderSelect).eq("idempotency_key", input.idempotencyKey!).maybeSingle();
   if (prior) return reply(200, receipt(prior as unknown as ReceiptOrder), cors);
   const fingerprint = await sha256(request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown");

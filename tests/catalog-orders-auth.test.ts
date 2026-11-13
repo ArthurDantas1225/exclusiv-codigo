@@ -3,11 +3,12 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import test from "node:test";
 import ts from "typescript";
+import { normalizePixSettings } from "../supabase-catalog/functions/_shared/inter-pix.ts";
 import { createRequire } from "node:module";
 import { createClient as defaultCreateClient } from "@supabase/supabase-js";
 const createClient: typeof defaultCreateClient = process.env.SUPABASE_TEST_CLIENT ? createRequire(import.meta.url)(process.env.SUPABASE_TEST_CLIENT).createClient : defaultCreateClient;
 
-async function runBridge(token: string | null, active = true) {
+async function runBridge(token: string | null, active = true, body: Record<string, unknown> = { action: "list" }, paymentStatus = "not_required") {
   let handler: (request: Request) => Promise<Response>;
   const profileAuthorizations: string[] = [];
   let catalogReads = 0;
@@ -24,19 +25,19 @@ async function runBridge(token: string | null, active = true) {
     }
     if (url.includes('/rest/v1/catalog_orders')) {
       catalogReads++;
-      return Response.json([{id:'order-1',code:'EXC-SAVED',status:'pending',catalog_order_items:[]}]);
+      return Response.json([{id:'order-1',code:'EXC-SAVED',status:'pending',payment_status:paymentStatus,catalog_order_items:[]}]);
     }
     throw new Error(`Unexpected request: ${new URL(url).pathname}`);
   };
   const source = readFileSync(new URL('../supabase-catalog/functions/catalog-orders/index.ts',import.meta.url),'utf8');
-  const compiled = ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/^import .*createClient.*;\r?\n/m,'');
+  const compiled = ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/^import .*;\r?\n/gm,'');
   const context = vm.createContext({
-    Request,Response,URL,
+    Request,Response,URL,normalizePixSettings,
     createClient: (url:string,key:string,options:Record<string,unknown>) => createClient(url,key,{...options,global:{...((options.global??{}) as object),fetch:fetcher}}),
     Deno:{env:{get:(key:string)=>key==='SUPABASE_URL'?'https://catalog.test':key==='SUPABASE_SERVICE_ROLE_KEY'?'test-service-key':undefined},serve:(callback:typeof handler)=>{handler=callback;}},
   });
   vm.runInContext(compiled,context);
-  const response=await handler!(new Request('https://catalog.test/functions/v1/catalog-orders',{method:'POST',headers:{origin:'https://exclusiv-codigo.vercel.app','content-type':'application/json',...(token?{authorization:`Bearer ${token}`}:{})},body:JSON.stringify({action:'list'})}));
+  const response=await handler!(new Request('https://catalog.test/functions/v1/catalog-orders',{method:'POST',headers:{origin:'https://exclusiv-codigo.vercel.app','content-type':'application/json',...(token?{authorization:`Bearer ${token}`}:{})},body:JSON.stringify(body)}));
   return {response,body:await response.json(),profileAuthorizations,catalogReads};
 }
 
@@ -52,4 +53,10 @@ test('missing, invalid and inactive sessions cannot read private orders',async()
     assert.equal(result.response.status,status);
     assert.equal(result.catalogReads,0);
   }
+});
+
+test('unverified Pix cannot be finalized or sold and non-admin cannot change recipient',async()=>{
+ const id='11111111-1111-4111-8111-111111111111';
+ for(const action of ['get_for_sale','confirm']){const result=await runBridge('team-session',true,{action,order_id:id,sale_id:id},'awaiting_verification');assert.equal(result.response.status,409);}
+ const settings=await runBridge('team-session',true,{action:'save_pix_settings',settings:{}});assert.equal(settings.response.status,403);
 });

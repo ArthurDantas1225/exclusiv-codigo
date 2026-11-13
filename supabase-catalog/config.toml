@@ -7,3 +7,7 @@ verify_jwt = false
 # The order bridge also validates ERP sessions inside its handler.
 [functions.catalog-orders]
 verify_jwt = false
+
+# Internal dispatch secret or a verified active ERP user is required by the handler.
+[functions.team-notifications]
+verify_jwt = false

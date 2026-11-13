@@ -6,10 +6,13 @@ import { useRouter } from "next/navigation";
 import { Clock3, Search, Trash2 } from "lucide-react";
 import { useStore } from "./provider";
 import { CustomerForm } from "./customers";
+import { InterPixSettings } from "./inter-pix-settings";
+import { OrderNotifications } from "./order-notifications";
 import { Card, Empty, Field, Sheet } from "./ui";
 import { money, dateTime } from "@/lib/format";
 import {
   cancelRemotePendingOrder,
+  markPendingOrderPaid,
   confirmRemotePendingOrder,
   importLegacyPendingOrder,
   listRemotePendingOrders,
@@ -21,13 +24,15 @@ import { methods } from "@/lib/types";
 import { saleSchema } from "@/lib/domain";
 
 export function PendingOrders() {
-  const { data, run, busy, notify, online } = useStore();
+  const { data, run, busy, notify, online, profile } = useStore();
   const router = useRouter();
   const [orders, setOrders] = useState<PendingOrder[]>([]);
   const [selected, setSelected] = useState<PendingOrder | null>(null);
   const [customerId, setCustomerId] = useState("");
   const [addingCustomer, setAddingCustomer] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("Pix");
+  const [confirmingPayment,setConfirmingPayment] = useState(false);
+  const [paymentReviewed,setPaymentReviewed] = useState(false);
   const [notes, setNotes] = useState("");
   const [query, setQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("Todos");
@@ -51,6 +56,15 @@ export function PendingOrders() {
     catch (error) { notify(error instanceof Error ? error.message : "Não foi possível atualizar os pedidos."); }
   }
 
+  useEffect(() => {
+    let active=true;
+    const reload=()=>{ void listRemotePendingOrders().then(next=>{if(active)setOrders(next);}).catch(()=>{}); };
+    const onMessage=(event:MessageEvent)=>{if(event.data?.type==="catalog-order-updated")reload();};
+    window.addEventListener("focus",reload);
+    navigator.serviceWorker?.addEventListener("message",onMessage);
+    return()=>{active=false;window.removeEventListener("focus",reload);navigator.serviceWorker?.removeEventListener("message",onMessage);};
+  }, []);
+
   const visibleOrders = useMemo(() => {
     const q = query.trim().toLowerCase();
     return orders.filter((order) => {
@@ -63,6 +77,7 @@ export function PendingOrders() {
   const totalPending = visibleOrders.reduce((sum, order) => sum + (order.total ?? order.items.reduce((itemSum, item) => itemSum + item.quantity * item.unitPrice, 0)), 0);
 
   async function confirmOrder(order: PendingOrder) {
+    if (order.paymentStatus === "awaiting_verification") { notify("Confira e confirme o Pix no Inter antes de registrar a venda."); return; }
     const items = order.items
       .map((item) => {
         const variant = data.product_variants.find((entry) => entry.id === item.variantId);
@@ -84,6 +99,7 @@ export function PendingOrders() {
     const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
     const promotionDiscount = Math.min(subtotal, order.promotionDiscount ?? 0);
     const total = Math.max(0, order.total ?? subtotal - promotionDiscount);
+    const effectivePayment = order.paymentStatus === "paid" ? "Pix" : paymentMethod;
     const payload = {
       request_id: saleRequestId(order),
       customer_id: customerId || null,
@@ -96,8 +112,8 @@ export function PendingOrders() {
       promotion_order_id: order.id,
       notes: notes || `Pedido pendente de ${order.customerName} · Pagamento: ${order.payment} · Entrega: ${order.delivery}`,
       items,
-      payments: [{ method: paymentMethod, amount: total }],
-      tendered: paymentMethod === "Dinheiro" ? total : 0,
+      payments: [{ method: effectivePayment, amount: total }],
+      tendered: effectivePayment === "Dinheiro" ? total : 0,
     };
 
     const parsed = saleSchema.safeParse(payload);
@@ -134,6 +150,9 @@ export function PendingOrders() {
           Abrir caixa
         </Link>
       </div>
+
+      <OrderNotifications />
+      {profile?.role === "admin" && <InterPixSettings />}
 
       {!orders.length ? (
         <Empty
@@ -193,7 +212,7 @@ export function PendingOrders() {
                         </small>
                       </div>
                       <span className="badge gray">
-                        <Clock3 size={15} /> pendente
+                        <Clock3 size={15} /> {order.paymentStatus === "awaiting_verification" ? "aguardando conferência" : order.paymentStatus === "paid" ? "Pix confirmado" : "pendente"}
                       </span>
                     </div>
 
@@ -218,7 +237,7 @@ export function PendingOrders() {
                     <div className="total-row total"><span>Total</span><span>{money(orderTotal)}</span></div>
 
                     <div className="inline-actions">
-                      <button onClick={() => { setAddingCustomer(false); setCustomerId(""); setSelected(order); }} disabled={!online || busy}>
+                      <button onClick={() => { setAddingCustomer(false); setPaymentReviewed(false); setCustomerId(""); setSelected(order); }} disabled={!online || busy}>
                         Preencher e confirmar
                       </button>
                       <button
@@ -260,6 +279,22 @@ export function PendingOrders() {
             ))}
           </div>
 
+          {selected.paymentStatus === "awaiting_verification" && (
+            <Card>
+              <h3>Conferir pagamento no Inter</h3>
+              <p>Confira no extrato o recebimento de <strong>{money(selected.total ?? 0)}</strong>, o pagador e o horário. O comprovante enviado pelo cliente não substitui a conferência no banco.</p>
+              <label className="check"><input type="checkbox" checked={paymentReviewed} onChange={event=>setPaymentReviewed(event.target.checked)} disabled={confirmingPayment}/>Conferi o crédito deste pedido na conta Inter</label>
+              <button type="button" disabled={!paymentReviewed||confirmingPayment||!online||busy} onClick={async()=>{
+                setConfirmingPayment(true);
+                try { await markPendingOrderPaid(selected.id); const next={...selected,paymentStatus:"paid" as const};setSelected(next);setOrders(current=>current.map(order=>order.id===next.id?next:order));notify("Pagamento confirmado. Revise os dados para registrar a venda."); }
+                catch(error){notify(error instanceof Error?error.message:"Não foi possível confirmar o pagamento.");}
+                finally{setConfirmingPayment(false);}
+              }}>{confirmingPayment?"Confirmando…":"Confirmar pagamento"}</button>
+              <p className="fine">Esta confirmação registra o recebimento e avisa a equipe. O estoque só será baixado ao confirmar a venda.</p>
+            </Card>
+          )}
+          {selected.paymentStatus === "paid" && <p role="status">Pix confirmado pela equipe.</p>}
+
           <Field label="Cliente da venda" name="customer">
             <select value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
               <option value="">Consumidor final</option>
@@ -289,7 +324,7 @@ export function PendingOrders() {
           )}
 
           <Field label="Forma de pagamento" name="payment-method">
-            <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+            <select disabled={selected.paymentStatus === "paid"} value={selected.paymentStatus === "paid" ? "Pix" : paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
               {methods.map((method) => (
                 <option key={method} value={method}>
                   {method}
@@ -303,7 +338,7 @@ export function PendingOrders() {
           </Field>
 
           <div className="inline-actions">
-            <button onClick={() => void confirmOrder(selected)} disabled={busy || !online || addingCustomer}>
+            <button onClick={() => void confirmOrder(selected)} disabled={busy || !online || addingCustomer || confirmingPayment || selected.paymentStatus === "awaiting_verification"}>
               {busy ? "Registrando…" : "Confirmar venda"}
             </button>
             <button className="ghost" onClick={() => setSelected(null)}>

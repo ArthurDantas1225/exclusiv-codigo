@@ -71,6 +71,7 @@ Deno.serve(async (request: Request) => {
     const remote = remoteResponse?.ok ? await remoteResponse.json().catch(() => null) : null;
     const order = remote?.order;
     if (!order) return reply(409, { error: "Não foi possível confirmar o pedido original do catálogo." }, headers);
+    if (order.payment_status === "paid" && (!Array.isArray(payload.payments) || payload.payments.length !== 1 || payload.payments[0]?.method !== "Pix")) return reply(409, { error: "Este pedido foi pago por Pix. Mantenha Pix como forma de pagamento." }, headers);
     const submitted = items.map((item) => `${item.variant_id}:${item.quantity}:${item.unit_price}`).sort();
     const frozen = (order.catalog_order_items ?? []).map((item: { variant_id: string; quantity: number; unit_price: number }) => `${item.variant_id}:${item.quantity}:${item.unit_price}`).sort();
     promotionDiscount = Number(order.promotion_discount);
@@ -87,7 +88,7 @@ Deno.serve(async (request: Request) => {
     promotion_discount: promotionDiscount, promotion_campaign_ids: campaignIds,
     promotion_version: source === "catalog" ? Number(payload.promotion_version) : config.version,
     promotion_source: source, ...(source === "catalog" ? { promotion_order_id: payload.promotion_order_id } : {}) };
-  const authenticated = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false }, global: { headers: { authorization: `Bearer ${token}` } } });
+  const authenticated = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
   const { data: result, error } = await authenticated.rpc("sale_with_promotions", { p: validated });
   if (error) return reply(400, { error: error.message }, headers);
   return reply(200, result, headers);

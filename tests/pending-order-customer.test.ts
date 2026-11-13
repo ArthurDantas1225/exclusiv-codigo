@@ -51,7 +51,7 @@ test('pending order can register and select a customer without creating a sale',
     'next/link': 'Link', 'next/navigation': { useRouter: () => ({ push: () => {} }) }, 'lucide-react': {},
     './provider': { useStore: () => ({ data: { customers: [{ id: 'customer-new', name: 'Cliente do pedido' }] }, online: true, busy: false, run: () => { sales++; }, notify: () => {} }) },
     './ui': { Card: 'Card', Empty: 'Empty', Field: 'Field', Sheet: 'Sheet' },
-    './customers': { CustomerForm: 'CustomerForm' }, '@/lib/format': { money: String, dateTime: String }, '@/lib/pending-orders': {}, '@/lib/types': { methods: ['Pix'] }, '@/lib/domain': {},
+    './customers': { CustomerForm: 'CustomerForm' }, './inter-pix-settings': { InterPixSettings: 'InterPixSettings' }, './order-notifications': { OrderNotifications: 'OrderNotifications' }, '@/lib/format': { money: String, dateTime: String }, '@/lib/pending-orders': {}, '@/lib/types': { methods: ['Pix'] }, '@/lib/domain': {},
   });
   const render = () => { cursor = 0; return elements(PendingOrders()); };
   render(); state[0] = [order];

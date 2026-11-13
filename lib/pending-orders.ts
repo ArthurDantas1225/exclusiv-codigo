@@ -15,6 +15,8 @@ export type PendingOrder = {
   id: string;
   code?: string;
   status?: string;
+  paymentStatus?: "not_required" | "awaiting_verification" | "paid";
+  paymentConfirmedAt?: string;
   createdAt: string;
   customerName: string;
   payment: string;
@@ -103,6 +105,8 @@ type RemoteOrderRow = {
   promotion_campaign_ids?: string[];
   promotion_version?: number;
   status: string;
+  payment_status?: "not_required" | "awaiting_verification" | "paid";
+  payment_confirmed_at?: string;
   catalog_order_items: {
     product_id: string;
     product_name: string;
@@ -120,6 +124,8 @@ export function remoteOrderFromRow(row: RemoteOrderRow): PendingOrder {
     id: row.id,
     code: row.code,
     status: row.status,
+    paymentStatus: row.payment_status ?? "not_required",
+    paymentConfirmedAt: row.payment_confirmed_at,
     createdAt: row.created_at,
     customerName: row.customer_name,
     payment: row.payment,
@@ -199,3 +205,9 @@ export async function confirmRemotePendingOrder(orderId: string, saleId: string)
 export async function cancelRemotePendingOrder(orderId: string) {
   await invoke({ action: "cancel", order_id: orderId });
 }
+
+export async function markPendingOrderPaid(orderId: string) {
+  await invoke({ action: "mark_paid", order_id: orderId });
+}
+export async function getInterPixSettings() { return (await invoke({action: "get_pix_settings"})).settings; }
+export async function saveInterPixSettings(settings: { enabled: boolean; key: string; receiverName: string; city: string }) { await invoke({action: "save_pix_settings", settings}); }

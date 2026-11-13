@@ -1592,3 +1592,16 @@ button,.button,input,select,textarea { border-radius:6px; }
  .catalog-discovery{padding-top:20px}.catalog-section-heading{padding-bottom:15px}.catalog-section-heading h2{font-size:34px;letter-spacing:-.7px}.catalog-section-heading>span{font-size:8px}.catalog-card-body{padding:11px 0}.catalog-card-body h2{font-size:13px}.catalog-card-body>strong{font-size:15px}.catalog-card-body>span{font-size:10px}.catalog-grid{gap:12px}.catalog-detail{border-radius:0}.catalog-lightbox{border-radius:0}.catalog-detail-main-photo{border-radius:0}.catalog-footer{gap:18px;padding-top:25px}.catalog-footer>div{width:100%}.catalog-footer a{font-size:11px}.catalog-detail-buy>.primary{min-width:0}.catalog-detail-buy{gap:7px}
 }
 @media(prefers-reduced-motion:reduce) { html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important} }
+
+.catalog-pix-payment {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.catalog-pix-payment h3 { margin: 0 0 10px; }
+.catalog-pix-payment p { overflow-wrap: anywhere; }
+.catalog-pix-status { color: var(--accent); font-weight: 700; }
+.catalog-pix-qr { display: flex; justify-content: center; margin: 18px 0; }
+.catalog-pix-qr img { width: min(100%, 280px); height: auto; border-radius: 8px; }
+.catalog-pix-payment textarea { width: 100%; margin: 8px 0 12px; resize: vertical; font-size: 13px; word-break: break-all; }
+.catalog-pix-payment .button { margin-top: 12px; }

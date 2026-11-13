@@ -16,6 +16,7 @@
     "html-to-image": "^1.11.13",
     "lucide-react": "^0.468.0",
     "next": "^16.0.0",
+    "qrcode": "1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "recharts": "^3.2.0",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.10",
     "@types/node": "^22.0.0",
+    "@types/qrcode": "1.5.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.0.0",

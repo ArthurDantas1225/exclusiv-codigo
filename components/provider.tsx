@@ -128,6 +128,7 @@ export function Provider({ children }: { children: ReactNode }) {
     window.addEventListener("offline", on);
     const sub = supabase?.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
+        if ("serviceWorker" in navigator) void navigator.serviceWorker.getRegistration().then(async worker => { await (await worker?.pushManager.getSubscription())?.unsubscribe(); }).catch(() => {});
         setData(emptyStore);
         router.replace("/login");
       }

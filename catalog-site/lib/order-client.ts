@@ -15,9 +15,15 @@ export type CatalogOrderReceipt = {
   discount: number;
   promotionVersion: number;
   status: "pending";
+  paymentStatus?: "awaiting_verification" | "paid" | "not_required";
+  pix?: { copyPaste: string; receiverName: string; qrCodeDataUrl?: string };
   items: { productName: string; model: string; color: string; size: string; quantity: number; unitPrice: number }[];
   whatsappUrl: string;
 };
+
+export function hasPixPayment(payment: string, receipt: CatalogOrderReceipt): boolean {
+  return payment === "Pix" && !!receipt.pix;
+}
 
 export class CatalogOrderError extends Error {
   uncertain: boolean;
@@ -53,6 +59,9 @@ export async function submitCatalogOrder(
   if (destination.protocol !== "https:" || destination.hostname !== "wa.me" ||
     destination.username || destination.password || destination.port || !/^\/\d+$/.test(destination.pathname)) {
     throw new CatalogOrderError("Resposta inválida ao registrar o pedido.", true);
+  }
+  if (result.pix && (typeof result.pix.copyPaste !== "string" || !result.pix.copyPaste.trim() || result.pix.copyPaste.length > 1024 || typeof result.pix.receiverName !== "string" || !result.pix.receiverName.trim() || result.pix.receiverName.length > 100)) {
+    throw new CatalogOrderError("Resposta inválida ao registrar o pedido. Tente novamente para recuperar o mesmo pedido.", true);
   }
   return result;
 }

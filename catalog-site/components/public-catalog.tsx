@@ -5,9 +5,10 @@ import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, ImageOff, Instagram, 
 import { money } from "@/lib/format";
 import { galleryForColor, sortedColors, type CatalogImage } from "@/lib/catalog-selection";
 import { catalogCategories, categoryForProduct, categoryNames, searchable, type CatalogCategory } from "@/lib/catalog-taxonomy";
-import { CatalogOrderError, submitCatalogOrder } from "@/lib/order-client";
+import { CatalogOrderError, hasPixPayment, submitCatalogOrder, type CatalogOrderReceipt } from "@/lib/order-client";
 import { calculate, promotionProductIds } from "@/lib/promotions";
 import { matchesAvailableOptions } from "@/lib/catalog-filter";
+import { PixPayment } from "./pix-payment";
 import { useCatalogDialog } from "./use-catalog-dialog";
 
 type CatalogVariant = { id: string; product_id: string; size: string; color: string; model: string; stock: number };
@@ -38,6 +39,7 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
   const [draftLocked, setDraftLocked] = useState(false);
   const [orderError, setOrderError] = useState("");
   const [confirmedCode, setConfirmedCode] = useState("");
+  const [pixReceipt, setPixReceipt] = useState<CatalogOrderReceipt | null>(null);
   const orderKey = useRef<string | null>(null);
   const sending = useRef(false);
   useCatalogDialog(!!selection, lightboxIndex === null ? ".catalog-detail" : ".catalog-lightbox");
@@ -155,7 +157,8 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
         items: cart.map((line) => ({ variantId: line.variant.id, quantity: line.quantity })),
       });
       setConfirmedCode(receipt.code);
-      window.location.assign(receipt.whatsappUrl);
+      if (hasPixPayment(payment, receipt)) setPixReceipt(receipt);
+      else window.location.assign(receipt.whatsappUrl);
     } catch (error) {
       if (error instanceof CatalogOrderError && !error.uncertain) {
         setDraftLocked(false);
@@ -226,8 +229,9 @@ export function PublicCatalog({ catalog }: { catalog: CatalogData }) {
         <label htmlFor="buyer-name">Seu nome</label><input id="buyer-name" disabled={draftLocked} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="Como podemos chamar você?" />
         <label htmlFor="buyer-payment">Como prefere pagar?</label><select id="buyer-payment" disabled={draftLocked} value={payment} onChange={(e) => setPayment(e.target.value)}>{["Pix","Dinheiro","Cartão de débito","Cartão de crédito","A combinar"].map((item) => <option key={item}>{item}</option>)}</select>
         <label htmlFor="buyer-delivery">Como quer receber?</label><select id="buyer-delivery" disabled={draftLocked} value={delivery} onChange={(e) => setDelivery(e.target.value)}>{["Retirada na loja","Entrega a combinar"].map((item) => <option key={item}>{item}</option>)}</select>
-        <button className="primary full" disabled={!canSubmit} onClick={() => void persistOrder()}>{submitting ? "Registrando pedido…" : confirmedCode ? "Reabrir pedido no WhatsApp" : "Enviar pedido no WhatsApp"} <ArrowRight size={18} /></button>
-        {confirmedCode && <div className="catalog-confirmed-order"><p>Pedido {confirmedCode} registrado. Ao voltar do WhatsApp, você pode reabrir esse pedido ou começar outro.</p><button type="button" className="ghost full" disabled={submitting} onClick={() => { setCart([]); setRemoved(null); orderKey.current = null; setConfirmedCode(""); setOrderError(""); setDraftLocked(false); }}>Começar novo pedido</button></div>}
+        {!pixReceipt && <button className="primary full" disabled={!canSubmit} onClick={() => void persistOrder()}>{submitting ? "Registrando pedido…" : confirmedCode ? "Reabrir pedido no WhatsApp" : payment === "Pix" ? "Finalizar pedido" : "Enviar pedido no WhatsApp"} <ArrowRight size={18} /></button>}
+        {pixReceipt && <PixPayment key={pixReceipt.id} receipt={pixReceipt} />}
+        {confirmedCode && <div className="catalog-confirmed-order"><p>Pedido {confirmedCode} registrado. {pixReceipt ? "Guarde o código do pedido para acompanhar a conferência com a loja." : "Ao voltar do WhatsApp, você pode reabrir esse pedido ou começar outro."}</p><button type="button" className="ghost full" disabled={submitting} onClick={() => { setCart([]); setRemoved(null); orderKey.current = null; setConfirmedCode(""); setPixReceipt(null); setOrderError(""); setDraftLocked(false); }}>Começar novo pedido</button></div>}
         {orderError && <p className="catalog-order-error" role="alert">{orderError}</p>}
         {draftLocked && !submitting && !confirmedCode && <p className="fine">Mantenha esta aba aberta: os dados foram preservados para recuperar o mesmo pedido. Se a conexão continuar indisponível, <a href={directWhatsApp} target="_blank" rel="noopener noreferrer">fale com a loja</a>.</p>}
         <p className="fine">Seu pedido será enviado para (84) 99600-8220. A loja confirma disponibilidade e pagamento; o envio não reserva estoque.</p>
